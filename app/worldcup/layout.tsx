@@ -1,0 +1,42 @@
+import Link from "next/link";
+import { LanguageSwitcher } from "@/app/LanguageSwitcher";
+
+export const metadata = { title: "FIFA World Cup — MIE Sport", description: "Every FIFA World Cup from 1930 to 2026" };
+
+export default function WorldCupLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", color: "var(--t-primary)", fontFamily: "system-ui, sans-serif" }}>
+
+      {/* Top bar — brand navy */}
+      <div style={{ background: "var(--brand-navy)", borderBottom: "1px solid #0f2040", padding: "0 1.5rem", height: 50, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>
+
+        {/* Logo + brand */}
+        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mie-logo.png" alt="MIE" width={42} height={42} style={{ borderRadius: 9, objectFit: "contain", filter: "drop-shadow(0 0 10px rgba(59,130,246,0.5))" }} />
+          <span style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.3 }}>MIE Sport</span>
+        </Link>
+
+        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
+        <Link href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Football</Link>
+        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
+        <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 700 }}>World Cup</span>
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+          <LanguageSwitcher />
+          <Link href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600 }}>← Live Scores</Link>
+          <Link href="/" style={{ textDecoration: "none", color: "#c62828", fontSize: 12, fontWeight: 700 }}>● Watch Live</Link>
+        </div>
+      </div>
+
+      {children}
+
+      <footer style={{ borderTop: "1px solid #0f2040", padding: "1.1rem", textAlign: "center", marginTop: "0.5rem", background: "var(--brand-navy)" }}>
+        <span style={{ fontSize: 12, color: "#354060" }}>
+          © 2026 MIE Empire · Special thanks to{" "}
+          <a href="https://www.atomiq.rw/" target="_blank" rel="noopener noreferrer" style={{ color: "#f5a623", fontWeight: 700, textDecoration: "none" }}>ATOMIQ</a>
+        </span>
+      </footer>
+    </div>
+  );
+}
