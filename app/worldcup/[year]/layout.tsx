@@ -39,6 +39,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
               alt="World Cup"
               width={70}
               height={70}
+              className="hero-logo"
               style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 4px 20px rgba(255,180,60,0.35))" }}
             />
 
@@ -75,7 +76,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
           </div>
 
           {/* Stage progress bar */}
-          <div style={{ position: "relative", paddingBottom: "1.75rem" }}>
+          <div className="wc-stage-bar" style={{ position: "relative", paddingBottom: "1.75rem" }}>
             {/* Gradient bar */}
             <div style={{ height: 3, borderRadius: 2, background: "linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #8b5cf6)" }} />
             {/* Stage dots + labels */}

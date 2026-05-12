@@ -8,24 +8,24 @@ export default function WorldCupLayout({ children }: { children: React.ReactNode
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", color: "var(--t-primary)", fontFamily: "system-ui, sans-serif" }}>
 
       {/* Top bar — brand navy */}
-      <div style={{ background: "var(--brand-navy)", borderBottom: "1px solid #0f2040", padding: "0 1.5rem", height: 50, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>
+      <div style={{ background: "var(--brand-navy)", borderBottom: "1px solid #0f2040", padding: "0 1.5rem", height: 50, display: "flex", alignItems: "center", gap: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>
 
         {/* Logo + brand */}
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mie-logo.png" alt="MIE" width={42} height={42} style={{ borderRadius: 9, objectFit: "contain", filter: "drop-shadow(0 0 10px rgba(59,130,246,0.5))" }} />
+          <img src="/mie-logo.png" alt="MIE" width={36} height={36} style={{ borderRadius: 8, objectFit: "contain", filter: "drop-shadow(0 0 10px rgba(59,130,246,0.5))" }} />
           <span style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.3 }}>MIE Sport</span>
         </Link>
 
-        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
-        <Link href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Football</Link>
-        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
-        <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 700 }}>World Cup</span>
+        <span className="topbar-breadcrumb" style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
+        <Link className="topbar-breadcrumb" href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Football</Link>
+        <span className="topbar-breadcrumb" style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>›</span>
+        <span className="topbar-breadcrumb" style={{ color: "#ffffff", fontSize: 13, fontWeight: 700 }}>World Cup</span>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+        <div className="topbar-right" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
           <LanguageSwitcher />
-          <Link href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600 }}>← Live Scores</Link>
-          <Link href="/" style={{ textDecoration: "none", color: "#c62828", fontSize: 12, fontWeight: 700 }}>● Watch Live</Link>
+          <Link href="/livescore" style={{ textDecoration: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 600 }}>← Scores</Link>
+          <Link href="/" style={{ textDecoration: "none", color: "#c62828", fontSize: 12, fontWeight: 700 }}>● Watch</Link>
         </div>
       </div>
 

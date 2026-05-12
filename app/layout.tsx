@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { MobileNav } from "./MobileNav";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Hidden Google Translate mount point */}
         <div id="gt_root" style={{ display: "none" }} />
         {children}
+        <MobileNav />
 
         {/* Google Translate — init function must load before the element script */}
         <Script id="gt-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{

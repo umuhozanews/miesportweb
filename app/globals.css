@@ -181,9 +181,9 @@ a { color: inherit; }
   border-color: #2e2e2e;
 }
 
-/* ════════════════ RESPONSIVE LAYOUT ════════════════ */
+/* ════════════════ LAYOUT STRUCTURE ════════════════ */
 
-/* ── Livescore two-column body (sidebar + main) ── */
+/* Livescore two-column body (sidebar + main) */
 .ls-body {
   max-width: 1280px;
   margin: 0 auto;
@@ -196,10 +196,10 @@ a { color: inherit; }
 .ls-main    { flex: 1; min-width: 0; }
 
 /* Desktop nav links */
-.ls-nav-links { display: flex; align-items: center; gap: 6px; }
+.ls-nav-links    { display: flex; align-items: center; gap: 6px; }
 .ls-header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
-/* Rwanda / World Cup two-column body (match panel + content) */
+/* Rwanda / World Cup two-column body */
 .panel-body {
   max-width: 1280px;
   margin: 0 auto;
@@ -210,53 +210,129 @@ a { color: inherit; }
   align-items: flex-start;
 }
 
-/* Team overview / fixture-result 2-equal-column grid */
+/* Team overview / 2-equal-column grid */
 .two-col-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
 }
 
-/* Standings / stat tables — horizontal scroll on small screens */
+/* Standings / stat tables — horizontal scroll */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-/* Hero section inner padding (WC / Rwanda) */
-.hero-inner { padding: 2rem 1.5rem 1.25rem; }
+/* Hero section inner padding */
+.hero-inner { padding: 1.75rem 1.5rem 1.25rem; }
 
-/* ── Tablet  (≤ 1024px) ── */
+/* ════════════════ MOBILE BOTTOM NAV ════════════════ */
+
+.mob-bottom-nav { display: none; }
+
+/* ════════════════ RESPONSIVE — TABLET (≤ 1024px) ════════════════ */
+
 @media (max-width: 1024px) {
-  .panel-body { grid-template-columns: 300px 1fr; }
-  .ls-body    { padding: 1rem; }
-  .hero-inner { padding: 1.5rem 1rem 1rem; }
+  .panel-body { grid-template-columns: 290px 1fr; gap: 1rem; }
+  .ls-body    { padding: 1rem; gap: 1rem; }
+  .hero-inner { padding: 1.5rem 1.25rem 1rem; }
 }
 
-/* ── Mobile  (≤ 768px) ── */
+/* ════════════════ RESPONSIVE — MOBILE (≤ 768px) ════════════════ */
+
 @media (max-width: 768px) {
-  /* Header: hide desktop nav links, keep logo + watch */
+
+  /* ── Body bottom padding so content clears the bottom nav ── */
+  body { padding-bottom: 62px; }
+
+  /* ── Bottom navigation bar ── */
+  .mob-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    background: rgba(5, 8, 16, 0.97);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    z-index: 300;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .mob-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.28);
+    transition: color 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    padding: 6px 4px;
+  }
+
+  .mob-nav-item.active { color: #ffffff; }
+
+  .mob-nav-watch         { color: rgba(239, 68, 68, 0.55); }
+  .mob-nav-watch.active  { color: #ef4444; }
+
+  .mob-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+  }
+
+  .mob-nav-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Header nav links / lang switch hidden on mobile ── */
   .ls-nav-links   { display: none !important; }
   .ls-lang-switch { display: none !important; }
 
-  /* Livescore body: single column, no sidebar */
-  .ls-body    { flex-direction: column; padding: 0.75rem; }
+  /* ── Top bar breadcrumbs hidden on mobile (bottom nav handles nav) ── */
+  .topbar-breadcrumb { display: none !important; }
+  .topbar-right      { display: none !important; }
+
+  /* ── Livescore body: single column, no sidebar ── */
+  .ls-body    { flex-direction: column; padding: 0.75rem 0.875rem; gap: 0.75rem; }
   .ls-sidebar { display: none !important; }
   .ls-main    { width: 100%; }
 
-  /* Rwanda / WC: stack panels vertically */
-  .panel-body { grid-template-columns: 1fr !important; padding: 0.75rem; }
+  /* ── Rwanda / WC panels: content first, matches second ── */
+  .panel-body {
+    display: flex !important;
+    flex-direction: column;
+    padding: 0.75rem 0.875rem;
+    gap: 0.875rem;
+  }
+  /* Swap order: content panel (2nd child) shows first */
+  .panel-body > *:first-child { order: 2; }
+  .panel-body > *:last-child  { order: 1; }
 
-  /* Team overview: stack */
+  /* ── Two-column grid: stack ── */
   .two-col-grid { grid-template-columns: 1fr !important; gap: 0.75rem; }
 
-  /* Hero */
-  .hero-inner { padding: 1.25rem 1rem 0.75rem; }
+  /* ── Hero section: compact ── */
+  .hero-inner { padding: 1rem 0.875rem 0.75rem; }
+  .hero-logo  { max-width: 48px !important; max-height: 48px !important; width: 48px !important; height: 48px !important; }
 
-  /* Team page header row */
-  .team-header-meta { display: none; }
+  /* ── WC stage progress bar: hide on mobile (labels overlap) ── */
+  .wc-stage-bar { display: none; }
 }
 
-/* ── Small mobile  (≤ 480px) ── */
+/* ════════════════ RESPONSIVE — SMALL MOBILE (≤ 480px) ════════════════ */
+
 @media (max-width: 480px) {
-  .ls-body    { padding: 0.5rem; }
-  .panel-body { padding: 0.5rem; gap: 0.5rem; }
-  .hero-inner { padding: 1rem 0.75rem 0.5rem; }
+  .ls-body    { padding: 0.625rem; }
+  .panel-body { padding: 0.625rem !important; gap: 0.625rem; }
+  .hero-inner { padding: 0.875rem 0.75rem 0.625rem; }
+
+  /* Match rows: slightly tighter */
+  .match-row  { padding: 0.875rem 1rem; gap: 10px; }
 }

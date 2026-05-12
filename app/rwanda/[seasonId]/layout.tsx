@@ -55,6 +55,7 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
               alt="Rwanda Premier League"
               width={64}
               height={64}
+              className="hero-logo"
               style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 4px 16px rgba(105,147,205,0.4))" }}
             />
             <div>

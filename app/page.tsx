@@ -39,23 +39,24 @@ export default async function Home() {
       <header style={{
         background: "var(--brand-navy)",
         borderBottom: "1px solid rgba(255,255,255,0.07)",
-        padding: "0 1.5rem",
+        padding: "0 1.25rem",
         height: 54,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
         flexShrink: 0,
+        gap: 12,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Image src="/mie-logo.png" alt="MIE Empire" width={38} height={38}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <Image src="/mie-logo.png" alt="MIE Empire" width={36} height={36}
             style={{ borderRadius: 7, display: "block" }} />
           <div>
-            <div style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.5 }}>MIE EMPIRE</div>
-            <div style={{ color: "#5b9bd5", fontSize: 10, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase" }}>Live Football</div>
+            <div style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.5 }}>MIE Sport</div>
+            <div style={{ color: "#5b9bd5", fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>Live Football</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link href="/livescore" style={{
             textDecoration: "none",
             background: "rgba(255,255,255,0.07)",
@@ -65,13 +66,14 @@ export default async function Home() {
             padding: "5px 12px",
             fontSize: 12,
             fontWeight: 700,
+            whiteSpace: "nowrap",
           }}>
-            📊 Live Scores
+            📊 Scores
           </Link>
           {liveEvents.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
               <span className="dot-live" />
-              <span style={{ color: "var(--c-live)", fontSize: 12, fontWeight: 700 }}>{liveEvents.length} Live</span>
+              <span style={{ color: "var(--c-live)", fontSize: 12, fontWeight: 700 }}>{liveEvents.length}</span>
             </div>
           )}
         </div>
