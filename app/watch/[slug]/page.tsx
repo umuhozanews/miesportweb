@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 import { VideoJsPlayer } from "./VideoJsPlayer";
 
@@ -15,13 +14,11 @@ export default async function WatchPage({ params }: PageProps) {
   const data = await scrapeSoccerTvHdStream(slug);
   const primary = data.primary;
 
-  // Always pass the proxied URL to the player — the client-side Video.js error
-  // handler shows a clean offline state if the CDN returns 404 (no live match).
-  // A server-side HEAD check against cachefly.net is unreliable and causes false
-  // negatives during actual live matches.
-  const playerSrc = primary?.type === "hls"
-    ? getProxiedHlsUrl(primary.url)
-    : null;
+  // The CDN (cachefly.net) has Access-Control-Allow-Origin: * so Video.js can
+  // load the HLS stream directly from the browser — no server proxy needed.
+  // The proxy was causing false offline states because datacenter IPs
+  // behave differently from real browser requests to the CDN.
+  const playerSrc = primary?.type === "hls" ? primary.url : null;
 
   const title = slug
     .replace(/-/g, " ")
@@ -162,10 +159,9 @@ function OfflineState() {
         <line x1={2} y1={2} x2={22} y2={22} stroke="currentColor" strokeWidth={1} strokeLinecap="round" />
       </svg>
       <div>
-        <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.55)" }}>Stream Offline</p>
+        <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.55)" }}>No Stream Found</p>
         <p style={{ fontSize: 13, margin: 0, maxWidth: 320 }}>
-          This channel broadcasts live during football matches.
-          Check back on match days.
+          Could not load stream info. Please try again or try another channel.
         </p>
       </div>
     </div>

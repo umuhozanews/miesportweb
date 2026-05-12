@@ -49,12 +49,7 @@ export function VideoJsPlayer({
       });
 
       player.on("error", () => {
-        const err = player?.error();
-        if (err?.code === 4) {
-          setStreamError("Stream is currently offline — check back when a live match is on.");
-        } else {
-          setStreamError("Could not load stream. Please try another channel.");
-        }
+        setStreamError("No live match on right now. These channels only broadcast top-tier matches (Champions League, World Cup, etc). Try again when a major match is on.");
       });
     });
 
