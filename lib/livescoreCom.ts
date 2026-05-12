@@ -114,22 +114,15 @@ async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stage
 }
 
 async function lsFetchRaw<T>(path: string): Promise<T | null> {
-  const url = `${BASE}${path}`;
   try {
-    const res = await undiciFetch(url, {
+    const res = await undiciFetch(`${BASE}${path}`, {
       dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
     });
-    if (!res.ok) {
-      console.error(`[lsFetchRaw] ${res.status} ${res.statusText} — ${url}`);
-      return null;
-    }
-    const json = await res.json() as T;
-    console.log(`[lsFetchRaw] OK ${url} — keys: ${Object.keys(json as object).join(",")}`);
-    return json;
-  } catch (err) {
-    console.error(`[lsFetchRaw] CATCH ${url} —`, err);
+    if (!res.ok) return null;
+    return res.json() as T;
+  } catch {
     return null;
   }
 }
