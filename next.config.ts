@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-initOpenNextCloudflareForDev();
+if (!process.env.VERCEL) {
+  initOpenNextCloudflareForDev();
+}
 
 const nextConfig: NextConfig = {
   turbopack: {
