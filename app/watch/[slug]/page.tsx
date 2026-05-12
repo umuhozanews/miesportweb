@@ -3,29 +3,8 @@ import Image from "next/image";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 import { VideoJsPlayer } from "./VideoJsPlayer";
-import { Agent, fetch as undiciFetch } from "undici";
 
 export const dynamic = "force-dynamic";
-
-const tlsAgent = new Agent({ connect: { rejectUnauthorized: false } });
-
-async function isStreamLive(url: string): Promise<boolean> {
-  try {
-    const r = await undiciFetch(url, {
-      dispatcher: tlsAgent,
-      method: "HEAD",
-      headers: {
-        "user-agent": "Mozilla/5.0",
-        referer: "https://www.soccertvhd.com/",
-        origin: "https://www.soccertvhd.com",
-      },
-      cache: "no-store",
-    });
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -36,8 +15,11 @@ export default async function WatchPage({ params }: PageProps) {
   const data = await scrapeSoccerTvHdStream(slug);
   const primary = data.primary;
 
-  const streamLive = primary?.type === "hls" ? await isStreamLive(primary.url) : false;
-  const playerSrc = streamLive && primary
+  // Always pass the proxied URL to the player — the client-side Video.js error
+  // handler shows a clean offline state if the CDN returns 404 (no live match).
+  // A server-side HEAD check against cachefly.net is unreliable and causes false
+  // negatives during actual live matches.
+  const playerSrc = primary?.type === "hls"
     ? getProxiedHlsUrl(primary.url)
     : null;
 
@@ -96,17 +78,8 @@ export default async function WatchPage({ params }: PageProps) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              {streamLive ? (
-                <>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulse-dot 1.6s ease-in-out infinite" }} />
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#22c55e", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Now</span>
-                </>
-              ) : (
-                <>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6b7280", display: "inline-block" }} />
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", letterSpacing: 1.5, textTransform: "uppercase" }}>Offline</span>
-                </>
-              )}
+              <span className="dot-live" />
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#22c55e", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Stream</span>
             </div>
             <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(1.1rem, 3vw, 1.75rem)", fontWeight: 900 }}>
               {channelName}
@@ -147,11 +120,9 @@ export default async function WatchPage({ params }: PageProps) {
           gap: 8,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: streamLive ? "#22c55e" : "#6b7280", display: "inline-block" }} />
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulse-dot 1.6s ease-in-out infinite" }} />
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-              {streamLive
-                ? <>Streaming &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>HD Adaptive</strong></>
-                : "Stream offline — available during live matches"}
+              Streaming &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>HD Adaptive</strong>
             </span>
           </div>
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>MIE Empire</span>
