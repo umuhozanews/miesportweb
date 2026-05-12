@@ -13,9 +13,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   const upstreamUrl = `${BASE}${apiPath}${qs ? "?" + qs : ""}`;
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await fetch(upstreamUrl, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      dispatcher: agent as any,
+      ...({ dispatcher: agent } as any),
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         Accept: "application/json, text/plain, */*",

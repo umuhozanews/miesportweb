@@ -15,9 +15,9 @@ const HEADERS = {
 
 async function rp<T>(path: string): Promise<T | null> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await fetch(`${BASE}${path}`, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      dispatcher: agent as any,
+      ...({ dispatcher: agent } as any),
       headers: HEADERS,
       cache: "no-store",
     });

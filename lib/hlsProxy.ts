@@ -156,9 +156,9 @@ async function fetchUpstream(request: Request, streamUrl: URL) {
 
   for (const url of urls) {
     for (const mode of attempts) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       response = await fetch(url, {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        dispatcher: tlsLenientAgent as any,
+        ...({ dispatcher: tlsLenientAgent } as any),
         cache: "no-store",
         headers: upstreamHeaders(request, streamUrl, mode),
       });

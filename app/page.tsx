@@ -5,18 +5,19 @@ import { scrapeSoccerTvHdHomeMatches, type ScrapedMatch } from "@/lib/soccerTvHd
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  let data: Awaited<ReturnType<typeof scrapeSoccerTvHdHomeMatches>>;
+  let matches: ScrapedMatch[] = [];
   try {
-    data = await scrapeSoccerTvHdHomeMatches();
+    const data = await scrapeSoccerTvHdHomeMatches();
+    matches = data.matches;
   } catch {
-    data = { matches: [] };
+    // upstream unavailable — show empty state
   }
   const now = new Date();
 
-  const live = data.matches.filter(
+  const live = matches.filter(
     (m) => now >= new Date(m.startIso) && now <= new Date(m.endIso),
   );
-  const upcoming = data.matches.filter(
+  const upcoming = matches.filter(
     (m) => now < new Date(m.startIso),
   );
 
@@ -78,8 +79,8 @@ export default async function Home() {
           Watch Football Live
         </h1>
         <p style={{ color: "#93c5fd", marginTop: 12, fontSize: 15 }}>
-          {data.matches.length > 0
-            ? `${data.matches.length} match${data.matches.length !== 1 ? "es" : ""} · Free streaming`
+          {matches.length > 0
+            ? `${matches.length} match${matches.length !== 1 ? "es" : ""} · Free streaming`
             : "Free streaming · Check back soon"}
         </p>
       </div>

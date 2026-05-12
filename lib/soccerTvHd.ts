@@ -251,9 +251,9 @@ function getBootUrl(widgetId: string) {
 }
 
 async function fetchText(url: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await fetch(url, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dispatcher: tlsLenientAgent as any,
+    ...({ dispatcher: tlsLenientAgent } as any),
     cache: "no-store",
     headers: {
       accept: "text/html,application/xhtml+xml",
@@ -269,9 +269,9 @@ async function fetchText(url: string) {
 }
 
 async function fetchStreamText(url: string, referer: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await fetch(url, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dispatcher: tlsLenientAgent as any,
+    ...({ dispatcher: tlsLenientAgent } as any),
     cache: "no-store",
     headers: {
       accept:
@@ -292,9 +292,9 @@ async function fetchStreamText(url: string, referer: string) {
 }
 
 async function fetchJson<T>(url: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await fetch(url, {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dispatcher: tlsLenientAgent as any,
+    ...({ dispatcher: tlsLenientAgent } as any),
     cache: "no-store",
     headers: {
       accept: "application/json",

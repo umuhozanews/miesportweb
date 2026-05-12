@@ -101,9 +101,9 @@ export type LsTable = {
 async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stages: LsStage[] } | null> {
   const d = date.replace(/-/g, "");
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await fetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      dispatcher: agent as any,
+      ...({ dispatcher: agent } as any),
       headers: HEADERS,
       cache: "no-store",
     });
@@ -116,9 +116,9 @@ async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stage
 
 async function lsFetchRaw<T>(path: string): Promise<T | null> {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await fetch(`${BASE}${path}`, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      dispatcher: agent as any,
+      ...({ dispatcher: agent } as any),
       headers: HEADERS,
       cache: "no-store",
     });
