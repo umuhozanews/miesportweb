@@ -13,6 +13,7 @@ import {
   type LsEvent,
 } from "@/lib/livescoreCom";
 import type { Sport } from "@/lib/sofascore";
+import { TeamImg, CompImg } from "./TeamImg";
 
 const C = {
   border: "rgba(255,255,255,0.08)",
@@ -137,14 +138,7 @@ function LsCompetitionBlock({ stage }: { stage: LsStage }) {
       {/* Competition header — links to competition page */}
       <Link href={`/livescore/tournament/${stage.CompId}/${stage.Sid}`} style={{ textDecoration: "none" }}>
         <div className="sf-comp-header" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.compHeader, borderLeft: "3px solid #1e4db7" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lsCompImg(stage.badgeUrl)}
-            alt=""
-            width={22}
-            height={22}
-            style={{ objectFit: "contain", flexShrink: 0, borderRadius: 3 }}
-          />
+          <CompImg src={lsCompImg(stage.badgeUrl)} size={22} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{stage.Snm}</div>
             <div style={{ fontSize: 12, color: C.muted }}>{stage.Cnm}</div>
@@ -205,15 +199,13 @@ function LsMatchRow({ event, last }: { event: LsEvent; last: boolean }) {
       {/* Teams */}
       <div>
         <Link href={`/livescore/team/${home.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "8px 14px 6px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lsTeamImg(home.Img)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
+          <TeamImg src={lsTeamImg(home.Img, home.ID)} name={home.Nm} size={16} />
           <span style={{ fontSize: 14, fontWeight: homeWon ? 700 : 400, color: isFt && !homeWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {home.Nm}
           </span>
         </Link>
         <Link href={`/livescore/team/${away.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "6px 14px 8px", borderTop: `1px solid ${C.innerBorder}` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lsTeamImg(away.Img)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
+          <TeamImg src={lsTeamImg(away.Img, away.ID)} name={away.Nm} size={16} />
           <span style={{ fontSize: 14, fontWeight: awayWon ? 700 : 400, color: isFt && !awayWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {away.Nm}
           </span>

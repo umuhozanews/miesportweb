@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getLsSearch, lsTeamImg, lsCompImg } from "@/lib/livescoreCom";
+import { TeamImg, CompImg } from "@/app/livescore/TeamImg";
 
 type Props = { searchParams: Promise<{ q?: string }> };
 
@@ -48,7 +49,7 @@ export default async function SearchPage({ searchParams }: Props) {
           {teams.map((t) => (
             <Link key={t.Sid} href={`/livescore/team/${t.Sid}`} style={{ textDecoration: "none" }}>
               <ResultRow
-                imgSrc={t.Img ? lsTeamImg(t.Img) : ""}
+                imgSrc={lsTeamImg(t.Img ?? "", t.Sid)}
                 name={t.Nm}
                 sub={t.Cnm ?? ""}
               />
@@ -62,7 +63,7 @@ export default async function SearchPage({ searchParams }: Props) {
           {comps.map((c) => (
             <Link key={c.Sid} href={`/livescore/tournament/${c.CompId ?? c.Sid}/${c.Sid}`} style={{ textDecoration: "none" }}>
               <ResultRow
-                imgSrc={c.badgeUrl ? lsCompImg(c.badgeUrl) : ""}
+                imgSrc={lsCompImg(c.badgeUrl ?? "")}
                 name={c.Nm}
                 sub={c.Cnm ?? ""}
                 square
@@ -97,11 +98,10 @@ function ResultRow({ imgSrc, name, sub, square }: { imgSrc: string; name: string
       className="search-row"
       style={{ display: "flex", alignItems: "center", gap: 13, padding: "11px 15px", borderBottom: "1px solid #181818", background: "#1c1c1c", cursor: "pointer" }}
     >
-      {imgSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgSrc} alt="" width={32} height={32} style={{ borderRadius: square ? 6 : "50%", objectFit: "contain", flexShrink: 0 }} />
+      {square ? (
+        <CompImg src={imgSrc} size={32} radius={6} />
       ) : (
-        <div style={{ width: 32, height: 32, borderRadius: square ? 6 : "50%", background: "#222", flexShrink: 0 }} />
+        <TeamImg src={imgSrc} name={name} size={32} radius="50%" />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: "#e0e0e0" }}>{name}</div>

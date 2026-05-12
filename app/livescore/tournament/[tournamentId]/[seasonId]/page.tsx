@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getLsStageFixtures, lsTeamImg, lsTime, lsDate, lsIsNS, lsIsLive, lsIsFinished, type LsEvent } from "@/lib/livescoreCom";
+import { TeamImg } from "@/app/livescore/TeamImg";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
@@ -56,8 +57,7 @@ export function CompMatchTable({ events }: { events: LsEvent[] }) {
               <span style={{ fontSize: 13, fontWeight: isFt && hs !== null && as_ !== null && hs > as_ ? 700 : 400, color: isFt && hs !== null && as_ !== null && hs < as_ ? "#484848" : "#d8d8d8", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {home.Nm}
               </span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lsTeamImg(home.Img)} alt="" width={18} height={18} style={{ objectFit: "contain", flexShrink: 0 }} />
+              <TeamImg src={lsTeamImg(home.Img, home.ID)} name={home.Nm} size={18} />
             </Link>
 
             {/* Score */}
@@ -75,8 +75,7 @@ export function CompMatchTable({ events }: { events: LsEvent[] }) {
 
             {/* Away */}
             <Link href={`/livescore/team/${away.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lsTeamImg(away.Img)} alt="" width={18} height={18} style={{ objectFit: "contain", flexShrink: 0 }} />
+              <TeamImg src={lsTeamImg(away.Img, away.ID)} name={away.Nm} size={18} />
               <span style={{ fontSize: 13, fontWeight: isFt && hs !== null && as_ !== null && as_ > hs ? 700 : 400, color: isFt && hs !== null && as_ !== null && as_ < hs ? "#484848" : "#d8d8d8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {away.Nm}
               </span>

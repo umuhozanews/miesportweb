@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getLsCompStandings, lsTeamImg } from "@/lib/livescoreCom";
+import { TeamImg } from "@/app/livescore/TeamImg";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
@@ -53,8 +54,7 @@ export default async function StandingsPage({ params }: Props) {
             }}
           >
             <span style={{ fontSize: 12, fontWeight: 700, color: "#3a3a3a" }}>{row.Rnk}</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lsTeamImg(row.TImg)} alt="" width={22} height={22} style={{ objectFit: "contain" }} />
+            <TeamImg src={lsTeamImg(row.TImg, row.Eid)} name={row.Tnm} size={22} />
             <Link href={`/livescore/team/${row.Eid}`} style={{ textDecoration: "none" }}>
               <span style={{ fontWeight: 600, fontSize: 13, color: "#d8d8d8" }}>{row.Tnm}</span>
             </Link>

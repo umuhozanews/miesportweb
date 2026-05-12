@@ -1,5 +1,6 @@
 import { getLsStageMeta, lsCompImg } from "@/lib/livescoreCom";
 import { TournamentNav } from "../TournamentNav";
+import { CompImg } from "@/app/livescore/TeamImg";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }>; children: React.ReactNode };
 
@@ -24,20 +25,7 @@ export default async function TournamentSeasonLayout({ params, children }: Props
         border: "1px solid #1e2a3a",
         borderBottom: "none",
       }}>
-        {badge ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={lsCompImg(badge)}
-            alt=""
-            width={52}
-            height={52}
-            style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }}
-          />
-        ) : (
-          <div style={{ width: 52, height: 52, borderRadius: 10, background: "#1e4db7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
-            🏆
-          </div>
-        )}
+        <CompImg src={lsCompImg(badge)} size={52} radius={10} />
         <div>
           <div style={{ color: "#f0f0f0", fontSize: 19, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.2 }}>
             {name}

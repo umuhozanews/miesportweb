@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getLsStages, lsCompImg, lsTeamImg } from "@/lib/livescoreCom";
+import { TeamImg, CompImg } from "./TeamImg";
 
 const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#5a7090", label: "#3a5070", panel: "#0f1a2e" };
 
@@ -39,8 +40,7 @@ export async function Sidebar() {
               className="sf-sidebar-item"
               style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lsCompImg(stage.badgeUrl)} alt="" width={22} height={22} style={{ objectFit: "contain", flexShrink: 0, borderRadius: 3 }} />
+              <CompImg src={lsCompImg(stage.badgeUrl)} size={22} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{stage.Snm}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>{stage.Cnm}</div>
@@ -73,8 +73,7 @@ export async function Sidebar() {
                 className="sf-sidebar-item"
                 style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lsTeamImg(t.Img)} alt="" width={22} height={22} style={{ objectFit: "contain", flexShrink: 0 }} />
+                <TeamImg src={lsTeamImg(t.Img, t.ID)} name={t.Nm} size={22} />
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.Nm}</div>
               </Link>
             ))}

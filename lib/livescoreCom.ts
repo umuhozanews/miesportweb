@@ -348,11 +348,14 @@ export const getLsSearch = cache(
 
 /* ─── Image helpers ─── */
 
-export function lsTeamImg(img: string): string {
-  return `https://storage.livescore.com/images/team/medium/${img}`;
+export function lsTeamImg(img: string, fallbackId?: string): string {
+  const name = img || (fallbackId ? `${fallbackId}.png` : "");
+  if (!name) return "";
+  return `https://storage.livescore.com/images/team/medium/${name}`;
 }
 
 export function lsCompImg(badgeUrl: string): string {
+  if (!badgeUrl) return "";
   return `https://storage.livescore.com/images/competition/medium/${badgeUrl}`;
 }
 

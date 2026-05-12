@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { lsTeamImg, lsCompImg, lsTime, lsDate, lsIsNS, lsIsLive, lsIsFinished, type LsEvent } from "@/lib/livescoreCom";
+import { TeamImg, CompImg } from "@/app/livescore/TeamImg";
 
 const C = {
   border: "rgba(255,255,255,0.08)",
@@ -71,8 +72,7 @@ export function EventList({ events, teamId }: { events: LsEvent[]; teamId: strin
 
             {/* Opponent + competition */}
             <Link href={`/livescore/team/${opp.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lsTeamImg(opp.Img)} alt="" width={18} height={18} style={{ objectFit: "contain", flexShrink: 0 }} />
+              <TeamImg src={lsTeamImg(opp.Img, opp.ID)} name={opp.Nm} size={18} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#d0d0d0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {opp.Nm}
@@ -80,8 +80,7 @@ export function EventList({ events, teamId }: { events: LsEvent[]; teamId: strin
                 {e.Stg && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                     {e.Stg.badgeUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={lsCompImg(e.Stg.badgeUrl)} alt="" width={10} height={10} style={{ objectFit: "contain" }} />
+                      <CompImg src={lsCompImg(e.Stg.badgeUrl)} size={10} radius={2} />
                     )}
                     <span style={{ fontSize: 10, color: "#3a3a3a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {e.Stg.Snm}

@@ -1,5 +1,6 @@
 import { getLsTeam, getLsTeamFromEvents, lsTeamImg } from "@/lib/livescoreCom";
 import { TeamNav } from "./TeamNav";
+import { TeamImg } from "@/app/livescore/TeamImg";
 
 type Props = { params: Promise<{ teamId: string }>; children: React.ReactNode };
 
@@ -20,13 +21,11 @@ export default async function TeamLayout({ params, children }: Props) {
         border: "1px solid #1e2a3a",
         borderBottom: "none",
       }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={team?.Img ? lsTeamImg(team.Img) : `https://storage.livescore.com/images/team/medium/${teamId}.png`}
-          alt=""
-          width={60}
-          height={60}
-          style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }}
+        <TeamImg
+          src={lsTeamImg(team?.Img ?? "", teamId)}
+          name={team?.Nm ?? `Team ${teamId}`}
+          size={60}
+          radius={10}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: "#f0f0f0", fontSize: 20, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.2 }}>
