@@ -1,17 +1,15 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { searchAll, teamImg, tournamentImg, playerImg } from "@/lib/sofascore";
+import { getLsSearch, lsTeamImg, lsCompImg } from "@/lib/livescoreCom";
 
 type Props = { searchParams: Promise<{ q?: string }> };
 
 export default async function SearchPage({ searchParams }: Props) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const results = query ? await searchAll(query) : [];
+  const { teams, comps } = query ? await getLsSearch(query) : { teams: [], comps: [] };
 
-  const teams       = results.filter((r) => r.type === "team");
-  const tournaments = results.filter((r) => r.type === "uniqueTournament");
-  const players     = results.filter((r) => r.type === "player");
+  const hasResults = teams.length > 0 || comps.length > 0;
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "1.5rem 1rem" }}>
@@ -24,57 +22,52 @@ export default async function SearchPage({ searchParams }: Props) {
           <input
             name="q"
             defaultValue={query}
-            placeholder="Search teams, leagues, players…"
+            placeholder="Search teams, leagues…"
             autoFocus
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e8e8e8", fontSize: 14 }}
           />
         </div>
         <button type="submit" style={{
-          background: "#1e3a6e",
-          color: "#60a5fa",
-          border: "1px solid #1e3a6e",
-          borderRadius: 9,
-          padding: "10px 22px",
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: "pointer",
-          flexShrink: 0,
+          background: "#1e3a6e", color: "#60a5fa", border: "1px solid #1e3a6e",
+          borderRadius: 9, padding: "10px 22px", fontWeight: 700, fontSize: 13,
+          cursor: "pointer", flexShrink: 0,
         }}>
           Search
         </button>
       </form>
 
       {!query && (
-        <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>Enter a team, league or player name above.</p>
+        <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>Enter a team or league name above.</p>
       )}
-      {query && results.length === 0 && (
+      {query && !hasResults && (
         <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>No results for &ldquo;{query}&rdquo;</p>
       )}
 
       {teams.length > 0 && (
         <ResultSection title="Teams">
-          {teams.map((r) => (
-            <Link key={r.entity.id} href={`/livescore/team/${r.entity.id}`} style={{ textDecoration: "none" }}>
-              <ResultRow imgSrc={teamImg(r.entity.id)} name={r.entity.name} sub={r.entity.sport?.slug ?? ""} />
+          {teams.map((t) => (
+            <Link key={t.Sid} href={`/livescore/team/${t.Sid}`} style={{ textDecoration: "none" }}>
+              <ResultRow
+                imgSrc={t.Img ? lsTeamImg(t.Img) : ""}
+                name={t.Nm}
+                sub={t.Cnm ?? ""}
+              />
             </Link>
           ))}
         </ResultSection>
       )}
 
-      {tournaments.length > 0 && (
-        <ResultSection title="Leagues & Cups">
-          {tournaments.map((r) => (
-            <Link key={r.entity.id} href={`/livescore/tournament/${r.entity.id}`} style={{ textDecoration: "none" }}>
-              <ResultRow imgSrc={tournamentImg(r.entity.id)} name={r.entity.name} sub={r.entity.category?.name ?? ""} />
+      {comps.length > 0 && (
+        <ResultSection title="Leagues &amp; Cups">
+          {comps.map((c) => (
+            <Link key={c.Sid} href={`/livescore/tournament/${c.CompId ?? c.Sid}/${c.Sid}`} style={{ textDecoration: "none" }}>
+              <ResultRow
+                imgSrc={c.badgeUrl ? lsCompImg(c.badgeUrl) : ""}
+                name={c.Nm}
+                sub={c.Cnm ?? ""}
+                square
+              />
             </Link>
-          ))}
-        </ResultSection>
-      )}
-
-      {players.length > 0 && (
-        <ResultSection title="Players">
-          {players.map((r) => (
-            <ResultRow key={r.entity.id} imgSrc={playerImg(r.entity.id)} name={r.entity.name} sub="" round />
           ))}
         </ResultSection>
       )}
@@ -86,7 +79,9 @@ function ResultSection({ title, children }: { title: string; children: React.Rea
   return (
     <section style={{ marginBottom: "1.25rem" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, fontWeight: 800, color: "#3a3a3a", letterSpacing: 1.5, textTransform: "uppercase" }}>{title}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: "#3a3a3a", letterSpacing: 1.5, textTransform: "uppercase" }}
+          dangerouslySetInnerHTML={{ __html: title }}
+        />
         <div style={{ flex: 1, height: 1, background: "#1e1e1e" }} />
       </div>
       <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
@@ -96,17 +91,21 @@ function ResultSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function ResultRow({ imgSrc, name, sub, round }: { imgSrc: string; name: string; sub: string; round?: boolean }) {
+function ResultRow({ imgSrc, name, sub, square }: { imgSrc: string; name: string; sub: string; square?: boolean }) {
   return (
     <div
       className="search-row"
       style={{ display: "flex", alignItems: "center", gap: 13, padding: "11px 15px", borderBottom: "1px solid #181818", background: "#1c1c1c", cursor: "pointer" }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={imgSrc} alt="" width={32} height={32} style={{ borderRadius: round ? "50%" : 6, objectFit: "contain", flexShrink: 0 }} />
+      {imgSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imgSrc} alt="" width={32} height={32} style={{ borderRadius: square ? 6 : "50%", objectFit: "contain", flexShrink: 0 }} />
+      ) : (
+        <div style={{ width: 32, height: 32, borderRadius: square ? 6 : "50%", background: "#222", flexShrink: 0 }} />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: "#e0e0e0" }}>{name}</div>
-        {sub && <div style={{ fontSize: 11, color: "#484848", textTransform: "capitalize", marginTop: 1 }}>{sub}</div>}
+        {sub && <div style={{ fontSize: 11, color: "#484848", marginTop: 1 }}>{sub}</div>}
       </div>
       <span style={{ color: "#2a2a2a", fontSize: 16 }}>›</span>
     </div>

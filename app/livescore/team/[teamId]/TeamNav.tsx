@@ -9,7 +9,6 @@ export function TeamNav({ teamId }: { teamId: string }) {
     { href: base, label: "Overview" },
     { href: `${base}/fixtures`, label: "Fixtures" },
     { href: `${base}/results`, label: "Results" },
-    { href: `${base}/squad`, label: "Squad" },
   ];
   return (
     <div style={{ display: "flex", padding: "0 1rem" }}>

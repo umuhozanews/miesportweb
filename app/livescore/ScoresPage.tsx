@@ -1,17 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import {
-  getLiveEvents,
-  getScheduledEvents,
-  groupByTournament,
-  teamImg as sfTeamImg,
-  tournamentImg as sfTournamentImg,
-  fmtTime,
-  statusLabel,
-  type Sport,
-  type SfEvent,
-} from "@/lib/sofascore";
-import {
   getLsStages,
   lsTeamImg,
   lsCompImg,
@@ -19,9 +8,11 @@ import {
   lsIsNS,
   lsIsLive,
   lsIsFinished,
+  toApiSport,
   type LsStage,
   type LsEvent,
 } from "@/lib/livescoreCom";
+import type { Sport } from "@/lib/sofascore";
 
 const C = {
   border: "rgba(255,255,255,0.08)",
@@ -85,18 +76,16 @@ export function ScoresPage({ sport, date, basePath }: { sport: Sport; date: stri
 
       {/* Match groups — streamed in */}
       <Suspense fallback={<MatchesSkeleton />}>
-        {sport === "football"
-          ? <FootballGroups date={date} />
-          : <OtherSportGroups sport={sport} date={date} />
-        }
+        <AllSportsGroups sport={sport} date={date} />
       </Suspense>
     </div>
   );
 }
 
-/* ─── Football: fetches from livescore.com API ─── */
-async function FootballGroups({ date }: { date: string }) {
-  const stages = await getLsStages(date);
+/* ─── All sports: fetch from livescore.com API ─── */
+async function AllSportsGroups({ sport, date }: { sport: Sport; date: string }) {
+  const lsSport = toApiSport(sport);
+  const stages = await getLsStages(date, lsSport);
 
   if (stages.length === 0) {
     return (
@@ -112,36 +101,6 @@ async function FootballGroups({ date }: { date: string }) {
     <>
       {stages.map((stage) => (
         <LsCompetitionBlock key={stage.Sid} stage={stage} />
-      ))}
-    </>
-  );
-}
-
-/* ─── Basketball / Volleyball: still uses Sofascore ─── */
-async function OtherSportGroups({ sport, date }: { sport: Sport; date: string }) {
-  const [live, scheduled] = await Promise.all([
-    getLiveEvents(sport),
-    getScheduledEvents(sport, date),
-  ]);
-
-  const liveIds = new Set(live.map((e) => e.id));
-  const rest = scheduled.filter((e) => !liveIds.has(e.id));
-  const allGroups = [...groupByTournament(live), ...groupByTournament(rest)];
-
-  if (allGroups.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "5rem 1rem", color: C.muted }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-        <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: C.text }}>No matches scheduled</p>
-        <p style={{ fontSize: 13, marginTop: 6 }}>Try another date</p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {allGroups.map((g) => (
-        <SfCompetitionBlock key={g.tournamentId} group={g} />
       ))}
     </>
   );
@@ -175,22 +134,24 @@ function MatchesSkeleton() {
 function LsCompetitionBlock({ stage }: { stage: LsStage }) {
   return (
     <div style={{ marginBottom: 8, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
-      {/* Competition header */}
-      <div className="sf-comp-header" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.compHeader, borderLeft: "3px solid #1e4db7" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={lsCompImg(stage.badgeUrl)}
-          alt=""
-          width={22}
-          height={22}
-          style={{ objectFit: "contain", flexShrink: 0, borderRadius: 3 }}
-          onError={undefined}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{stage.Snm}</div>
-          <div style={{ fontSize: 12, color: C.muted }}>{stage.Cnm}</div>
+      {/* Competition header — links to competition page */}
+      <Link href={`/livescore/tournament/${stage.CompId}/${stage.Sid}`} style={{ textDecoration: "none" }}>
+        <div className="sf-comp-header" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.compHeader, borderLeft: "3px solid #1e4db7" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lsCompImg(stage.badgeUrl)}
+            alt=""
+            width={22}
+            height={22}
+            style={{ objectFit: "contain", flexShrink: 0, borderRadius: 3 }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{stage.Snm}</div>
+            <div style={{ fontSize: 12, color: C.muted }}>{stage.Cnm}</div>
+          </div>
+          <span style={{ color: C.muted, fontSize: 16 }}>›</span>
         </div>
-      </div>
+      </Link>
 
       {/* Match rows */}
       <div style={{ background: C.panel }}>
@@ -243,20 +204,20 @@ function LsMatchRow({ event, last }: { event: LsEvent; last: boolean }) {
 
       {/* Teams */}
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 14px 6px" }}>
+        <Link href={`/livescore/team/${home.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "8px 14px 6px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={lsTeamImg(home.Img)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
           <span style={{ fontSize: 14, fontWeight: homeWon ? 700 : 400, color: isFt && !homeWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {home.Nm}
           </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 14px 8px", borderTop: `1px solid ${C.innerBorder}` }}>
+        </Link>
+        <Link href={`/livescore/team/${away.ID}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "6px 14px 8px", borderTop: `1px solid ${C.innerBorder}` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={lsTeamImg(away.Img)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
           <span style={{ fontSize: 14, fontWeight: awayWon ? 700 : 400, color: isFt && !awayWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {away.Nm}
           </span>
-        </div>
+        </Link>
       </div>
 
       {/* Scores */}
@@ -271,105 +232,6 @@ function LsMatchRow({ event, last }: { event: LsEvent; last: boolean }) {
             <span style={{ fontSize: 16, fontWeight: 800, color: isLive ? C.live : awayWon ? "#ffffff" : C.muted, lineHeight: "2.1", minWidth: 16, textAlign: "center" }}>
               {as_ ?? "-"}
             </span>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ════════════════ SOFASCORE COMPONENTS (basketball/volleyball) ════════════════ */
-
-function SfCompetitionBlock({
-  group,
-}: {
-  group: { label: string; categoryName: string; tournamentId: number; events: SfEvent[] };
-}) {
-  const seasonId = group.events[0]?.season?.id;
-  const href = seasonId
-    ? `/livescore/tournament/${group.tournamentId}/${seasonId}`
-    : `/livescore/tournament/${group.tournamentId}`;
-
-  return (
-    <div style={{ marginBottom: 8, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
-      <Link href={href} style={{ textDecoration: "none" }}>
-        <div className="sf-comp-header" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.compHeader, borderLeft: "3px solid #1e4db7" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={sfTournamentImg(group.tournamentId)} alt="" width={22} height={22} style={{ objectFit: "contain", flexShrink: 0, borderRadius: 3 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{group.label}</div>
-            <div style={{ fontSize: 12, color: C.muted }}>{group.categoryName}</div>
-          </div>
-          <span style={{ color: C.muted, fontSize: 16 }}>›</span>
-        </div>
-      </Link>
-
-      <div style={{ background: C.panel }}>
-        {group.events.map((event, i) => (
-          <SfMatchRow key={event.id} event={event} last={i === group.events.length - 1} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SfMatchRow({ event, last }: { event: SfEvent; last: boolean }) {
-  const st = event.status;
-  const isLive = st.type === "inprogress";
-  const isFt = st.type === "finished";
-  const isNs = st.type === "notstarted";
-
-  const home = event.homeTeam;
-  const away = event.awayTeam;
-  const hs = event.homeScore.current;
-  const as_ = event.awayScore.current;
-
-  const homeWon = isFt && (hs ?? 0) > (as_ ?? 0);
-  const awayWon = isFt && (as_ ?? 0) > (hs ?? 0);
-
-  return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "48px 1fr auto",
-      borderBottom: last ? "none" : `1px solid ${C.border}`,
-      background: isLive ? "rgba(76,175,80,0.04)" : "transparent",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: `1px solid ${C.border}`, padding: "0 6px" }}>
-        {isLive ? (
-          <span style={{ fontSize: 11, fontWeight: 900, color: C.live }}>{statusLabel(st) || "Live"}</span>
-        ) : isFt ? (
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.ft }}>FT</span>
-        ) : isNs ? (
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.blue }}>{fmtTime(event.startTimestamp)}</span>
-        ) : (
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>{statusLabel(st)}</span>
-        )}
-      </div>
-
-      <div>
-        <Link href={`/livescore/team/${home.id}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "8px 14px 6px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={sfTeamImg(home.id)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
-          <span style={{ fontSize: 14, fontWeight: homeWon ? 700 : 400, color: isFt && !homeWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {home.name}
-          </span>
-        </Link>
-        <Link href={`/livescore/team/${away.id}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 9, padding: "6px 14px 8px", borderTop: `1px solid ${C.innerBorder}` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={sfTeamImg(away.id)} alt="" width={16} height={16} style={{ objectFit: "contain", flexShrink: 0 }} />
-          <span style={{ fontSize: 14, fontWeight: awayWon ? 700 : 400, color: isFt && !awayWon ? C.muted : "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {away.name}
-          </span>
-        </Link>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-end", paddingRight: 16 }}>
-        {isNs ? (
-          <span style={{ fontSize: 12, color: C.dimmed }}>vs</span>
-        ) : (
-          <>
-            <span style={{ fontSize: 16, fontWeight: 800, color: isLive ? C.live : "#ffffff", lineHeight: "2.1", minWidth: 14, textAlign: "center" }}>{hs ?? 0}</span>
-            <span style={{ fontSize: 16, fontWeight: 800, color: isLive ? C.live : "#ffffff", lineHeight: "2.1", minWidth: 14, textAlign: "center" }}>{as_ ?? 0}</span>
           </>
         )}
       </div>

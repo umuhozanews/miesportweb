@@ -1,8 +1,7 @@
 import { Agent } from "undici";
-import { corsHeaders } from "@/lib/hlsProxy";
 
 const agent = new Agent({ connect: { rejectUnauthorized: false } });
-const BASE = "https://api.sofascore.com/api/v1";
+const BASE = "https://mev-api.live-lsm.ls-g.net";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +17,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       dispatcher: agent as any,
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        accept: "application/json",
-        referer: "https://www.sofascore.com/",
-        origin: "https://www.sofascore.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        Referer: "https://www.livescore.com/",
+        Origin: "https://www.livescore.com",
       },
       cache: "no-store",
     });

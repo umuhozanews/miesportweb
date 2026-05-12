@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { getTeamFixtures, getTeamResults } from "@/lib/sofascore";
+import { getLsTeamEvents } from "@/lib/livescoreCom";
 import { EventList } from "./EventList";
 
 type Props = { params: Promise<{ teamId: string }> };
@@ -17,18 +17,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default async function TeamOverviewPage({ params }: Props) {
   const { teamId } = await params;
-  const id = Number(teamId);
-  const [fixtures, results] = await Promise.all([getTeamFixtures(id), getTeamResults(id)]);
+  const [fixtures, results] = await Promise.all([
+    getLsTeamEvents(teamId, "fix"),
+    getLsTeamEvents(teamId, "res"),
+  ]);
 
   return (
     <div style={{ display: "grid", gap: "1.25rem", gridTemplateColumns: "1fr 1fr" }}>
       <section>
         <SectionLabel>Next Fixtures</SectionLabel>
-        <EventList events={fixtures.slice(0, 5)} teamId={id} />
+        <EventList events={fixtures.slice(0, 5)} teamId={teamId} />
       </section>
       <section>
         <SectionLabel>Recent Results</SectionLabel>
-        <EventList events={results.slice(0, 5)} teamId={id} />
+        <EventList events={results.slice(0, 5)} teamId={teamId} />
       </section>
     </div>
   );

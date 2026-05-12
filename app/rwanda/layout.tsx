@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { LanguageSwitcher } from "@/app/LanguageSwitcher";
+import { LiveRefresher } from "@/app/livescore/LiveRefresher";
 
 export const metadata = { title: "Rwanda Premier League — MIE Sport", description: "Rwanda National League standings, results and stats" };
 
 export default function RwandaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", color: "var(--t-primary)", fontFamily: "system-ui, sans-serif" }}>
+      <LiveRefresher />
 
       {/* Top bar — brand navy */}
       <div style={{ background: "var(--brand-navy)", borderBottom: "1px solid #0f2040", padding: "0 1.5rem", height: 50, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>

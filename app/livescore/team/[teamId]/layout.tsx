@@ -1,11 +1,11 @@
-import { getTeam, teamImg } from "@/lib/sofascore";
+import { getLsTeam, lsTeamImg } from "@/lib/livescoreCom";
 import { TeamNav } from "./TeamNav";
 
 type Props = { params: Promise<{ teamId: string }>; children: React.ReactNode };
 
 export default async function TeamLayout({ params, children }: Props) {
   const { teamId } = await params;
-  const team = await getTeam(Number(teamId));
+  const team = await getLsTeam(teamId);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
@@ -22,7 +22,7 @@ export default async function TeamLayout({ params, children }: Props) {
       }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={teamImg(Number(teamId))}
+          src={team?.Img ? lsTeamImg(team.Img) : `https://storage.livescore.com/images/team/medium/${teamId}.png`}
           alt=""
           width={60}
           height={60}
@@ -30,22 +30,16 @@ export default async function TeamLayout({ params, children }: Props) {
         />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: "#f0f0f0", fontSize: 20, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.2 }}>
-            {team?.name ?? `Team ${teamId}`}
+            {team?.Nm ?? `Team ${teamId}`}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5, flexWrap: "wrap" }}>
-            {team?.country && (
-              <span style={{ color: "#60a5fa", fontSize: 12, fontWeight: 600 }}>{team.country.name}</span>
+            {team?.Cnm && (
+              <span style={{ color: "#60a5fa", fontSize: 12, fontWeight: 600 }}>{team.Cnm}</span>
             )}
-            {team?.venue?.city?.name && (
+            {team?.CoachNm && (
               <>
                 <span style={{ color: "#303040", fontSize: 11 }}>·</span>
-                <span style={{ color: "#606070", fontSize: 12 }}>{team.venue.city.name}</span>
-              </>
-            )}
-            {team?.manager?.name && (
-              <>
-                <span style={{ color: "#303040", fontSize: 11 }}>·</span>
-                <span style={{ color: "#606070", fontSize: 12 }}>Mgr: {team.manager.name}</span>
+                <span style={{ color: "#606070", fontSize: 12 }}>Mgr: {team.CoachNm}</span>
               </>
             )}
           </div>
