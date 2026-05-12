@@ -195,6 +195,67 @@ export async function getLsStageResults(
   return events.sort((a, b) => b.Esd - a.Esd); // most recent first
 }
 
+/* ─── Team date-window helpers ─── */
+
+export async function getLsTeamFixtures(
+  teamId: string,
+  sport: LsSport = "soccer",
+): Promise<LsEvent[]> {
+  const dates = dateRange(0, 7);
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  const seen = new Set<string>();
+  const events: LsEvent[] = [];
+  for (const stages of all) {
+    for (const stage of stages) {
+      for (const e of stage.Events ?? []) {
+        if ((e.T1?.[0]?.ID === teamId || e.T2?.[0]?.ID === teamId) && !seen.has(e.Eid)) {
+          seen.add(e.Eid);
+          events.push({ ...e, Stg: { Sid: stage.Sid, Snm: stage.Snm, Cnm: stage.Cnm, Ccd: stage.Ccd, CompId: stage.CompId, badgeUrl: stage.badgeUrl } });
+        }
+      }
+    }
+  }
+  return events.sort((a, b) => a.Esd - b.Esd);
+}
+
+export async function getLsTeamResults(
+  teamId: string,
+  sport: LsSport = "soccer",
+): Promise<LsEvent[]> {
+  const dates = dateRange(-7, 7);
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  const seen = new Set<string>();
+  const events: LsEvent[] = [];
+  for (const stages of all) {
+    for (const stage of stages) {
+      for (const e of stage.Events ?? []) {
+        if ((e.T1?.[0]?.ID === teamId || e.T2?.[0]?.ID === teamId) && !seen.has(e.Eid)) {
+          seen.add(e.Eid);
+          events.push({ ...e, Stg: { Sid: stage.Sid, Snm: stage.Snm, Cnm: stage.Cnm, Ccd: stage.Ccd, CompId: stage.CompId, badgeUrl: stage.badgeUrl } });
+        }
+      }
+    }
+  }
+  return events.sort((a, b) => b.Esd - a.Esd);
+}
+
+export async function getLsTeamFromEvents(
+  teamId: string,
+  sport: LsSport = "soccer",
+): Promise<LsTeamDetail | null> {
+  const dates = dateRange(-3, 4);
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  for (const stages of all) {
+    for (const stage of stages) {
+      for (const e of stage.Events ?? []) {
+        const t = [e.T1?.[0], e.T2?.[0]].find((t) => t?.ID === teamId);
+        if (t) return { ID: t.ID, Nm: t.Nm, Img: t.Img, Abr: t.Abr };
+      }
+    }
+  }
+  return null;
+}
+
 /* ─── Team API ─── */
 
 export const getLsTeam = cache(

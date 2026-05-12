@@ -1,11 +1,11 @@
-import { getLsTeam, lsTeamImg } from "@/lib/livescoreCom";
+import { getLsTeam, getLsTeamFromEvents, lsTeamImg } from "@/lib/livescoreCom";
 import { TeamNav } from "./TeamNav";
 
 type Props = { params: Promise<{ teamId: string }>; children: React.ReactNode };
 
 export default async function TeamLayout({ params, children }: Props) {
   const { teamId } = await params;
-  const team = await getLsTeam(teamId);
+  const team = (await getLsTeam(teamId)) ?? (await getLsTeamFromEvents(teamId));
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>

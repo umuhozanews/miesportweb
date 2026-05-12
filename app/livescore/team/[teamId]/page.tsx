@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { getLsTeamEvents } from "@/lib/livescoreCom";
+import { getLsTeamFixtures, getLsTeamResults } from "@/lib/livescoreCom";
 import { EventList } from "./EventList";
 
 type Props = { params: Promise<{ teamId: string }> };
@@ -18,8 +18,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default async function TeamOverviewPage({ params }: Props) {
   const { teamId } = await params;
   const [fixtures, results] = await Promise.all([
-    getLsTeamEvents(teamId, "fix"),
-    getLsTeamEvents(teamId, "res"),
+    getLsTeamFixtures(teamId),
+    getLsTeamResults(teamId),
   ]);
 
   return (
