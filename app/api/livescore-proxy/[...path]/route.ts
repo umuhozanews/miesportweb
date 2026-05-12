@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 
 const agent = new Agent({ connect: { rejectUnauthorized: false } });
 const BASE = "https://mev-api.live-lsm.ls-g.net";
@@ -13,9 +13,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   const upstreamUrl = `${BASE}${apiPath}${qs ? "?" + qs : ""}`;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await fetch(upstreamUrl, {
-      ...({ dispatcher: agent } as any),
+    const res = await undiciFetch(upstreamUrl, {
+      dispatcher: agent,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         Accept: "application/json, text/plain, */*",

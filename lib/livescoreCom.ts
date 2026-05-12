@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 import { unstable_cache as cache } from "next/cache";
 
 const BASE = "https://mev-api.live-lsm.ls-g.net";
@@ -101,9 +101,8 @@ export type LsTable = {
 async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stages: LsStage[] } | null> {
   const d = date.replace(/-/g, "");
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await fetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
-      ...({ dispatcher: agent } as any),
+    const res = await undiciFetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
+      dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
     });
@@ -116,9 +115,8 @@ async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stage
 
 async function lsFetchRaw<T>(path: string): Promise<T | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await fetch(`${BASE}${path}`, {
-      ...({ dispatcher: agent } as any),
+    const res = await undiciFetch(`${BASE}${path}`, {
+      dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
     });

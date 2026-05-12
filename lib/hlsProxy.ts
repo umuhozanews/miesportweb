@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
 
@@ -83,6 +83,10 @@ export async function proxyHlsRequest(request: Request, target: string) {
 
   const upstream = await fetchUpstream(request, streamUrl);
 
+  if (!upstream) {
+    return new Response("Bad Gateway", { status: 502, headers: corsHeaders(request) });
+  }
+
   const contentType = upstream.headers.get("content-type") ?? "";
   const playlist = isPlaylist(streamUrl, contentType);
   const responseHeaders = proxyResponseHeaders(request, upstream.headers, {
@@ -156,12 +160,11 @@ async function fetchUpstream(request: Request, streamUrl: URL) {
 
   for (const url of urls) {
     for (const mode of attempts) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response = await fetch(url, {
-        ...({ dispatcher: tlsLenientAgent } as any),
+      response = await undiciFetch(url, {
+        dispatcher: tlsLenientAgent,
         cache: "no-store",
         headers: upstreamHeaders(request, streamUrl, mode),
-      });
+      }) as unknown as Response;
 
       if (await isUsableUpstreamResponse(response)) {
         return response;

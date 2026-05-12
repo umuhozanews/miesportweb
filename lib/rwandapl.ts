@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 import { unstable_cache as cache } from "next/cache";
 
 const BASE = "https://api.sofascore.com/api/v1";
@@ -15,9 +15,8 @@ const HEADERS = {
 
 async function rp<T>(path: string): Promise<T | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const res = await fetch(`${BASE}${path}`, {
-      ...({ dispatcher: agent } as any),
+    const res = await undiciFetch(`${BASE}${path}`, {
+      dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
     });

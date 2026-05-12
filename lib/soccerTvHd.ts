@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 
 const HOME_URL = "https://www.soccertvhd.com/";
 const SITE_ORIGIN = "https://www.soccertvhd.com";
@@ -251,9 +251,8 @@ function getBootUrl(widgetId: string) {
 }
 
 async function fetchText(url: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await fetch(url, {
-    ...({ dispatcher: tlsLenientAgent } as any),
+  const response = await undiciFetch(url, {
+    dispatcher: tlsLenientAgent,
     cache: "no-store",
     headers: {
       accept: "text/html,application/xhtml+xml",
@@ -269,9 +268,8 @@ async function fetchText(url: string) {
 }
 
 async function fetchStreamText(url: string, referer: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await fetch(url, {
-    ...({ dispatcher: tlsLenientAgent } as any),
+  const response = await undiciFetch(url, {
+    dispatcher: tlsLenientAgent,
     cache: "no-store",
     headers: {
       accept:
@@ -292,9 +290,8 @@ async function fetchStreamText(url: string, referer: string) {
 }
 
 async function fetchJson<T>(url: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await fetch(url, {
-    ...({ dispatcher: tlsLenientAgent } as any),
+  const response = await undiciFetch(url, {
+    dispatcher: tlsLenientAgent,
     cache: "no-store",
     headers: {
       accept: "application/json",
