@@ -145,6 +145,63 @@ export const getLsStages = cache(
   { revalidate: 30 },
 );
 
+/* ─── Date-window helpers (comp endpoints return 404; these use date API) ─── */
+
+function dateRange(startOffset: number, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + startOffset + i);
+    return d.toISOString().split("T")[0];
+  });
+}
+
+export async function getLsStageMeta(
+  sid: string,
+  sport: LsSport = "soccer",
+): Promise<{ name: string; country: string; badge: string }> {
+  const dates = dateRange(-6, 7); // today - 6 days to today
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  for (const stages of all) {
+    const s = stages.find((s) => s.Sid === sid);
+    if (s) return { name: s.Snm, country: s.Cnm, badge: s.badgeUrl };
+  }
+  return { name: "Competition", country: "", badge: "" };
+}
+
+export async function getLsStageFixtures(
+  sid: string,
+  sport: LsSport = "soccer",
+): Promise<LsEvent[]> {
+  const dates = dateRange(0, 7); // today + 6 days
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  const seen = new Set<string>();
+  const events: LsEvent[] = [];
+  for (const stages of all) {
+    const s = stages.find((s) => s.Sid === sid);
+    for (const e of s?.Events ?? []) {
+      if (!seen.has(e.Eid)) { seen.add(e.Eid); events.push(e); }
+    }
+  }
+  return events.sort((a, b) => a.Esd - b.Esd);
+}
+
+export async function getLsStageResults(
+  sid: string,
+  sport: LsSport = "soccer",
+): Promise<LsEvent[]> {
+  const dates = dateRange(-7, 7); // 7 days back to yesterday
+  const all = await Promise.all(dates.map((d) => getLsStages(d, sport)));
+  const seen = new Set<string>();
+  const events: LsEvent[] = [];
+  for (const stages of all) {
+    const s = stages.find((s) => s.Sid === sid);
+    for (const e of s?.Events ?? []) {
+      if (!seen.has(e.Eid)) { seen.add(e.Eid); events.push(e); }
+    }
+  }
+  return events.sort((a, b) => b.Esd - a.Esd); // most recent first
+}
+
 /* ─── Team API ─── */
 
 export const getLsTeam = cache(

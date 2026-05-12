@@ -1,4 +1,4 @@
-import { getLsCompMeta, getLsCompStandings, lsCompImg } from "@/lib/livescoreCom";
+import { getLsStageMeta, lsCompImg } from "@/lib/livescoreCom";
 import { TournamentNav } from "../TournamentNav";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }>; children: React.ReactNode };
@@ -6,14 +6,9 @@ type Props = { params: Promise<{ tournamentId: string; seasonId: string }>; chil
 export default async function TournamentSeasonLayout({ params, children }: Props) {
   const { tournamentId, seasonId } = await params;
 
-  // Get competition name from meta (uses cached event fetch) or standings
-  const [meta, standings] = await Promise.all([
-    getLsCompMeta(seasonId),
-    getLsCompStandings(seasonId),
-  ]);
-
-  const name = meta.name !== "Competition" ? meta.name : (standings.stageName || `Competition`);
-  const country = meta.country || "";
+  const meta = await getLsStageMeta(seasonId);
+  const name = meta.name;
+  const country = meta.country;
   const badge = meta.badge;
 
   return (

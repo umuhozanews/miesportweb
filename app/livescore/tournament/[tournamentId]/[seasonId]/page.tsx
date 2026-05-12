@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getLsCompEvents, lsTeamImg, lsTime, lsDate, lsIsNS, lsIsLive, lsIsFinished, type LsEvent } from "@/lib/livescoreCom";
+import { getLsStageFixtures, lsTeamImg, lsTime, lsDate, lsIsNS, lsIsLive, lsIsFinished, type LsEvent } from "@/lib/livescoreCom";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
 export default async function TournamentFixturesPage({ params }: Props) {
   const { seasonId } = await params;
-  const fixtures = await getLsCompEvents(seasonId, "fix");
+  const fixtures = await getLsStageFixtures(seasonId);
   if (fixtures.length === 0) return <Empty label="No upcoming fixtures" />;
   return <CompMatchTable events={fixtures} />;
 }
