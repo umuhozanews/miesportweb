@@ -11,7 +11,7 @@ const SPORTS = [
 export function SportsNav() {
   const path = usePathname();
   return (
-    <div style={{ display: "flex", gap: 6, padding: "10px 0" }}>
+    <div style={{ display: "flex", gap: 6, padding: "8px 0", overflowX: "auto", scrollbarWidth: "none" }}>
       {SPORTS.map((s) => {
         const active = s.href === "/livescore"
           ? path === "/livescore" || path === "/livescore/"
@@ -22,10 +22,11 @@ export function SportsNav() {
             href={s.href}
             style={{
               textDecoration: "none",
-              padding: "5px 18px",
+              padding: "5px 16px",
               borderRadius: 20,
               fontSize: 13,
               fontWeight: 700,
+              flexShrink: 0,
               background: active ? "#fff" : "transparent",
               color: active ? "#111" : "#666",
               border: active ? "none" : "1px solid #2a2a2a",

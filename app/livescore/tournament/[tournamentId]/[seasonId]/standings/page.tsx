@@ -18,7 +18,8 @@ export default async function StandingsPage({ params }: Props) {
   const gd = (r: (typeof rows)[0]) => r.GD ?? (r.GF - r.GA);
 
   return (
-    <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
+    <div className="table-scroll">
+    <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden", minWidth: 480 }}>
       {/* Header */}
       <div style={{
         display: "grid", gridTemplateColumns: COL, gap: 4, padding: "9px 14px",
@@ -69,6 +70,7 @@ export default async function StandingsPage({ params }: Props) {
           </div>
         );
       })}
+    </div>
     </div>
   );
 }

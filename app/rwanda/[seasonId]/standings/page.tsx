@@ -43,7 +43,8 @@ export default async function RwandaStandingsPage({ params, searchParams }: Prop
       </div>
 
       {/* Table */}
-      <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
+      <div className="table-scroll">
+      <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden", minWidth: 560 }}>
         {/* Header */}
         <div style={{ display: "grid", gridTemplateColumns: COL, gap: 4, padding: "9px 14px", background: "#141e30", fontSize: 9, fontWeight: 800, color: "#354060", textTransform: "uppercase", letterSpacing: 1 }}>
           <span>#</span><span />
@@ -61,6 +62,7 @@ export default async function RwandaStandingsPage({ params, searchParams }: Prop
           <StandingRow key={row.team.id} row={row} i={i} total={rows.length} form={forms[row.team.id] ?? []} />
         ))}
       </div>
+      </div>{/* /table-scroll */}
 
       {/* Legend */}
       <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>

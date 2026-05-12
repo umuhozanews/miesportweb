@@ -30,24 +30,24 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
           pointerEvents: "none",
         }} />
 
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "2rem 1.5rem 1.25rem", position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: "1.5rem" }}>
+        <div className="hero-inner" style={{ maxWidth: 1280, margin: "0 auto", position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "1rem" }}>
             {/* Trophy */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={tournamentImg()}
               alt="World Cup"
-              width={90}
-              height={90}
+              width={70}
+              height={70}
               style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 4px 20px rgba(255,180,60,0.35))" }}
             />
 
             {/* Title */}
             <div>
-              <h1 style={{ fontSize: 32, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: -0.5, lineHeight: 1.1 }}>
+              <h1 style={{ fontSize: "clamp(18px, 4vw, 28px)", fontWeight: 900, color: "#fff", margin: 0, letterSpacing: -0.5, lineHeight: 1.1 }}>
                 FIFA World Cup {year}
               </h1>
-              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "6px 0 0", fontWeight: 500 }}>
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "5px 0 0", fontWeight: 500 }}>
                 {sid ? "Group stage & match results" : "Historical data"}
               </p>
             </div>
@@ -95,7 +95,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
       </div>
 
       {/* ── TWO-COLUMN BODY ── */}
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "1.25rem 1.5rem", display: "grid", gridTemplateColumns: "340px 1fr", gap: "1.25rem", alignItems: "flex-start" }}>
+      <div className="panel-body">
         {/* Left: Matches panel */}
         {sid ? (
           <WCMatchesClient seasonId={sid} year={year} />

@@ -8,7 +8,7 @@ export default async function TeamLayout({ params, children }: Props) {
   const team = (await getLsTeam(teamId)) ?? (await getLsTeamFromEvents(teamId));
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "1rem 0.75rem" }}>
       {/* Team header */}
       <div style={{
         background: "linear-gradient(135deg, #141e30 0%, #1a2540 100%)",

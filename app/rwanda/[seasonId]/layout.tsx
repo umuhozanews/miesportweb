@@ -46,23 +46,23 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
           pointerEvents: "none",
         }} />
 
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "1.75rem 1.5rem 1.25rem", position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: "1.25rem" }}>
+        <div className="hero-inner" style={{ maxWidth: 1280, margin: "0 auto", position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "1rem" }}>
             {/* League logo */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={tournamentImg()}
               alt="Rwanda Premier League"
-              width={80}
-              height={80}
+              width={64}
+              height={64}
               style={{ objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 4px 16px rgba(105,147,205,0.4))" }}
             />
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-glow)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 }}>Rwanda</div>
-              <h1 style={{ fontSize: 28, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: -0.3, lineHeight: 1.1 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--brand-glow)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 3 }}>Rwanda</div>
+              <h1 style={{ fontSize: "clamp(18px, 4vw, 26px)", fontWeight: 900, color: "#fff", margin: 0, letterSpacing: -0.3, lineHeight: 1.1 }}>
                 Rwanda Premier League
               </h1>
-              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "5px 0 0", fontWeight: 500 }}>
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "4px 0 0", fontWeight: 500 }}>
                 {activeSeason?.name ?? `Season ${seasonId}`}
               </p>
             </div>
@@ -91,7 +91,7 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
       </div>
 
       {/* ── TWO-COLUMN BODY ── */}
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "1.25rem 1.5rem", display: "grid", gridTemplateColumns: "340px 1fr", gap: "1.25rem", alignItems: "flex-start" }}>
+      <div className="panel-body">
         {/* Left: Matches panel */}
         <RPMatchesClient seasonId={sid} initialRound={latestRound} featured={featured} />
 

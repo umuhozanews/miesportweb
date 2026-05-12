@@ -23,7 +23,7 @@ export default async function TeamOverviewPage({ params }: Props) {
   ]);
 
   return (
-    <div style={{ display: "grid", gap: "1.25rem", gridTemplateColumns: "1fr 1fr" }}>
+    <div className="two-col-grid">
       <section>
         <SectionLabel>Next Fixtures</SectionLabel>
         <EventList events={fixtures.slice(0, 5)} teamId={teamId} />

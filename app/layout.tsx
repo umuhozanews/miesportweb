@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     apple: "/mie-logo.png",
     shortcut: "/mie-logo.png",
   },
+  viewport: "width=device-width, initial-scale=1",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
