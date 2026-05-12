@@ -3,8 +3,29 @@ import Image from "next/image";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 import { VideoJsPlayer } from "./VideoJsPlayer";
+import { Agent, fetch as undiciFetch } from "undici";
 
 export const dynamic = "force-dynamic";
+
+const tlsAgent = new Agent({ connect: { rejectUnauthorized: false } });
+
+async function isStreamLive(url: string): Promise<boolean> {
+  try {
+    const r = await undiciFetch(url, {
+      dispatcher: tlsAgent,
+      method: "HEAD",
+      headers: {
+        "user-agent": "Mozilla/5.0",
+        referer: "https://www.soccertvhd.com/",
+        origin: "https://www.soccertvhd.com",
+      },
+      cache: "no-store",
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -14,12 +35,23 @@ export default async function WatchPage({ params }: PageProps) {
   const { slug } = await params;
   const data = await scrapeSoccerTvHdStream(slug);
   const primary = data.primary;
-  const playerSrc =
-    primary?.type === "hls" ? getProxiedHlsUrl(primary.url) : primary?.url;
+
+  const streamLive = primary?.type === "hls" ? await isStreamLive(primary.url) : false;
+  const playerSrc = streamLive && primary
+    ? getProxiedHlsUrl(primary.url)
+    : null;
 
   const title = slug
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const CHANNEL_NAMES: Record<string, string> = {
+    "streameast-stream-east-live-streaming": "StreamEast",
+    "score808-score808-live": "Score808",
+    "hesgoal-hes-goal-live-streaming": "HesGoal",
+    "sportsurge-sport-surge-live-streaming": "SportSurge",
+  };
+  const channelName = CHANNEL_NAMES[slug] ?? title;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#050d1a" }}>
@@ -29,17 +61,17 @@ export default async function WatchPage({ params }: PageProps) {
         background: "#071224",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         padding: "0 2rem",
-        height: 64,
+        height: 56,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         flexShrink: 0,
       }}>
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12 }}>
-          <Image src="/mie-logo.png" alt="MIE Empire" width={40} height={40}
+          <Image src="/mie-logo.png" alt="MIE Empire" width={38} height={38}
             style={{ borderRadius: 6, display: "block" }} />
           <div>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, letterSpacing: 1 }}>MIE EMPIRE</div>
+            <div style={{ color: "#fff", fontWeight: 800, fontSize: 14, letterSpacing: 1 }}>MIE EMPIRE</div>
             <div style={{ color: "#5b9bd5", fontSize: 10, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase" }}>Live Football</div>
           </div>
         </Link>
@@ -47,34 +79,39 @@ export default async function WatchPage({ params }: PageProps) {
         <Link href="/" style={{
           textDecoration: "none",
           display: "flex", alignItems: "center", gap: 6,
-          color: "rgba(255,255,255,0.5)",
+          color: "rgba(255,255,255,0.45)",
           fontSize: 13, fontWeight: 600,
         }}>
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          All Matches
+          All Channels
         </Link>
       </header>
 
       {/* ── PLAYER ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 1100, width: "100%", margin: "0 auto", padding: "2rem 1.5rem", gap: 20 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 1100, width: "100%", margin: "0 auto", padding: "1.75rem 1.5rem", gap: 18 }}>
 
-        {/* Match title */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{
-              background: "#ef4444",
-              color: "#fff", fontSize: 11, fontWeight: 800,
-              letterSpacing: 1.5, textTransform: "uppercase",
-              padding: "3px 10px", borderRadius: 4,
-            }}>
-              ● Live
-            </span>
+        {/* Channel title */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              {streamLive ? (
+                <>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulse-dot 1.6s ease-in-out infinite" }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#22c55e", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Now</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6b7280", display: "inline-block" }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#6b7280", letterSpacing: 1.5, textTransform: "uppercase" }}>Offline</span>
+                </>
+              )}
+            </div>
+            <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(1.1rem, 3vw, 1.75rem)", fontWeight: 900 }}>
+              {channelName}
+            </h1>
           </div>
-          <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(1.3rem, 3vw, 2rem)", fontWeight: 900 }}>
-            {title}
-          </h1>
         </div>
 
         {/* Video player */}
@@ -85,71 +122,117 @@ export default async function WatchPage({ params }: PageProps) {
           background: "#000",
           boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
         }}>
-          {primary ? (
-            <div style={{ position: "relative", paddingTop: "56.25%" }}>
-              <div style={{ position: "absolute", inset: 0 }}>
+          <div style={{ position: "relative", paddingTop: "56.25%" }}>
+            <div style={{ position: "absolute", inset: 0 }}>
+              {playerSrc ? (
                 <VideoJsPlayer
                   playerId={`mie-${slug.replace(/[^a-z0-9_-]/gi, "-")}`}
-                  src={playerSrc ?? primary.url}
+                  src={playerSrc}
                 />
-              </div>
+              ) : (
+                <OfflineState />
+              )}
             </div>
-          ) : (
-            <div style={{
-              paddingTop: "56.25%",
-              position: "relative",
-            }}>
-              <div style={{
-                position: "absolute", inset: 0,
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                color: "rgba(255,255,255,0.35)", gap: 12, textAlign: "center", padding: "2rem",
-              }}>
-                <svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-                </svg>
-                <p style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Stream not available yet</p>
-                <p style={{ fontSize: 14, margin: 0 }}>Check back closer to kick-off time.</p>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Status bar */}
-        {primary && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 10,
-            padding: "0.8rem 1.2rem",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
-                Streaming &nbsp;·&nbsp;
-                <strong style={{ color: "#fff" }}>
-                  {primary.type === "hls" ? "HD Adaptive" : primary.type?.toUpperCase()}
-                </strong>
-              </span>
-            </div>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>MIE Empire</span>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          borderRadius: 10,
+          padding: "0.75rem 1.1rem",
+          flexWrap: "wrap",
+          gap: 8,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: streamLive ? "#22c55e" : "#6b7280", display: "inline-block" }} />
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+              {streamLive
+                ? <>Streaming &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>HD Adaptive</strong></>
+                : "Stream offline — available during live matches"}
+            </span>
           </div>
-        )}
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>MIE Empire</span>
+        </div>
 
+        {/* Other channels */}
+        <OtherChannels current={slug} />
       </div>
 
       {/* ── FOOTER ── */}
       <footer style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
-        padding: "1.2rem 2rem",
+        padding: "1.1rem 2rem",
         display: "flex", justifyContent: "center",
       }}>
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
           © {new Date().getFullYear()} MIE Empire
         </span>
       </footer>
 
+    </div>
+  );
+}
+
+function OfflineState() {
+  return (
+    <div style={{
+      position: "absolute", inset: 0,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      background: "#050d1a",
+      color: "rgba(255,255,255,0.3)",
+      gap: 14, textAlign: "center", padding: "2rem",
+    }}>
+      <svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+        <line x1={2} y1={2} x2={22} y2={22} stroke="currentColor" strokeWidth={1} strokeLinecap="round" />
+      </svg>
+      <div>
+        <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.55)" }}>Stream Offline</p>
+        <p style={{ fontSize: 13, margin: 0, maxWidth: 320 }}>
+          This channel broadcasts live during football matches.
+          Check back on match days.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const ALL_CHANNELS = [
+  { name: "StreamEast",  slug: "streameast-stream-east-live-streaming" },
+  { name: "Score808",    slug: "score808-score808-live" },
+  { name: "HesGoal",     slug: "hesgoal-hes-goal-live-streaming" },
+  { name: "SportSurge",  slug: "sportsurge-sport-surge-live-streaming" },
+];
+
+function OtherChannels({ current }: { current: string }) {
+  const others = ALL_CHANNELS.filter((c) => c.slug !== current);
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.2)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
+        Try Another Channel
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {others.map((ch) => (
+          <Link key={ch.slug} href={`/watch/${ch.slug}`} style={{
+            textDecoration: "none",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "rgba(255,255,255,0.65)",
+            borderRadius: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+            {ch.name}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
