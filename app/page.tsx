@@ -13,9 +13,9 @@ import {
   type LsStage,
 } from "@/lib/livescoreCom";
 import {
-  scrapeSoccerTvHdHomeMatches,
-  type ScrapedMatch,
-} from "@/lib/soccerTvHd";
+  scrapeIStreamSchedule,
+  type IStreamMatch,
+} from "@/lib/iStreamEast";
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
@@ -33,17 +33,17 @@ function normWords(s: string): Set<string> {
   return new Set(words);
 }
 
-// Find a matching soccertvhd slug for a livescore event
-function findStreamSlug(homeNm: string, awayNm: string, streamMatches: ScrapedMatch[]): string | null {
+// Find a matching istreameast slug for a livescore event
+function findIStreamSlug(homeNm: string, awayNm: string, iMatches: IStreamMatch[]): string | null {
   const homeW = normWords(homeNm);
   const awayW = normWords(awayNm);
 
-  for (const m of streamMatches) {
-    if (!m.slug || !m.isLiveOrUpcoming) continue;
-    const nameW = normWords(m.name);
+  for (const m of iMatches) {
+    const mHomeW = normWords(m.home.replace(/-/g, " "));
+    const mAwayW = normWords(m.away.replace(/-/g, " "));
 
-    const homeHit = [...homeW].some((w) => nameW.has(w));
-    const awayHit = [...awayW].some((w) => nameW.has(w));
+    const homeHit = [...homeW].some((w) => mHomeW.has(w));
+    const awayHit = [...awayW].some((w) => mAwayW.has(w));
 
     if (homeHit && awayHit) return m.slug;
   }
@@ -51,16 +51,16 @@ function findStreamSlug(homeNm: string, awayNm: string, streamMatches: ScrapedMa
 }
 
 export default async function Home() {
-  // Fetch livescore data and soccertvhd stream list in parallel
-  const [stagesResult, streamResult] = await Promise.allSettled([
+  // Fetch livescore data and istreameast schedule in parallel
+  const [stagesResult, iStreamResult] = await Promise.allSettled([
     getLsStages(getTodayDate(), "soccer"),
-    scrapeSoccerTvHdHomeMatches(),
+    scrapeIStreamSchedule(),
   ]);
 
   const stages: LsStage[] =
     stagesResult.status === "fulfilled" ? stagesResult.value : [];
-  const streamMatches: ScrapedMatch[] =
-    streamResult.status === "fulfilled" ? streamResult.value.matches : [];
+  const iStreamMatches: IStreamMatch[] =
+    iStreamResult.status === "fulfilled" ? iStreamResult.value : [];
 
   const allEvents: LsEvent[] = stages.flatMap((s) => s.Events ?? []);
   const liveEvents     = allEvents.filter(lsIsLive);
@@ -123,13 +123,9 @@ export default async function Home() {
             <SectionLabel live>Live Now</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
               {liveEvents.map((e) => {
-                const home = (e.T1?.[0]?.Nm ?? "").toLowerCase()
-                  .normalize("NFD").replace(/[̀-ͯ]/g, "")
-                  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-                const away = (e.T2?.[0]?.Nm ?? "").toLowerCase()
-                  .normalize("NFD").replace(/[̀-ͯ]/g, "")
-                  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-                const watchSlug = home && away ? `${home}-vs-${away}-${e.Eid}` : null;
+                const homeNm = e.T1?.[0]?.Nm ?? "";
+                const awayNm = e.T2?.[0]?.Nm ?? "";
+                const watchSlug = findIStreamSlug(homeNm, awayNm, iStreamMatches);
                 return <MatchCard key={e.Eid} event={e} isLive watchSlug={watchSlug} />;
               })}
             </div>

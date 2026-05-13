@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { StreamPlayer } from "./StreamPlayer";
+import { scrapeMatchServers } from "@/lib/iStreamEast";
 
 export const dynamic = "force-dynamic";
 
@@ -44,14 +45,16 @@ export default async function WatchPage({ params }: PageProps) {
     awayTeam = toTitle(parsed.away);
     matchTitle = `${homeTeam} vs ${awayTeam}`;
 
-    // Primary: istreameast.is
-    servers.push(`https://istreameast.is/links/${parsed.home}-vs-${parsed.away}-${parsed.id}`);
-    // Server 2: streameast schedule page as fallback
-    servers.push(`https://streameastv1.com/schedule/soccer`);
+    const iStreamSlug = `${parsed.home}-vs-${parsed.away}-${parsed.id}`;
+    servers = await scrapeMatchServers(iStreamSlug);
+
+    if (servers.length === 0) {
+      // fallback: link to istreameast schedule so user can find the match
+      servers = [`https://istreameast.is/schedule/soccer`];
+    }
   } else {
-    // Legacy soccertvhd slugs — just show StreamEast
     matchTitle = toTitle(slug);
-    servers = ["https://streameastv1.com/schedule/soccer"];
+    servers = ["https://istreameast.is/schedule/soccer"];
   }
 
   return (
