@@ -9,8 +9,17 @@ const HEADERS = {
   "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   accept: "application/json, text/plain, */*",
   "accept-language": "en-US,en;q=0.9",
+  "accept-encoding": "gzip, deflate, br",
   referer: "https://www.sofascore.com/",
   origin: "https://www.sofascore.com",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-site",
+  "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+  "cache-control": "no-cache",
+  pragma: "no-cache",
 };
 
 async function rp<T>(path: string): Promise<T | null> {
@@ -19,6 +28,7 @@ async function rp<T>(path: string): Promise<T | null> {
       dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
     return res.json() as T;
@@ -104,6 +114,19 @@ export const getRPNextMatches = cache(
   },
   ["rp-next"],
   { revalidate: 60 },
+);
+
+export const getRPCurrentRound = cache(
+  async (sid: number): Promise<number> => {
+    const d = await rp<{ currentRound?: { round: number }; rounds?: Array<{ round: number }> }>(
+      `/unique-tournament/${UID}/season/${sid}/rounds`,
+    );
+    if (d?.currentRound?.round) return d.currentRound.round;
+    if (d?.rounds?.length) return d.rounds[d.rounds.length - 1].round;
+    return 1;
+  },
+  ["rp-current-round"],
+  { revalidate: 300 },
 );
 
 /* ── Standings ── */

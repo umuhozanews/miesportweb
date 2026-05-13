@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRPSeasons, getRPRecentMatches, getRPNextMatches, tournamentImg } from "@/lib/rwandapl";
+import { getRPSeasons, getRPRecentMatches, getRPCurrentRound, tournamentImg } from "@/lib/rwandapl";
 import { RPMatchesClient } from "./RPMatchesClient";
 import { RPTabNav } from "./RPTabNav";
 
@@ -9,21 +9,13 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
   const { seasonId } = await params;
   const sid = Number(seasonId);
 
-  const [seasons, recent, next] = await Promise.all([
+  const [seasons, recent, latestRound] = await Promise.all([
     getRPSeasons(),
     getRPRecentMatches(sid),
-    getRPNextMatches(sid),
+    getRPCurrentRound(sid),
   ]);
 
   const activeSeason = seasons.find((s) => s.id === sid);
-
-  // Find current/latest round from events
-  const latestRound = (() => {
-    const nextRound = next[0]?.roundInfo?.round;
-    if (nextRound) return nextRound;
-    const recentRound = [...recent].sort((a, b) => b.startTimestamp - a.startTimestamp)[0]?.roundInfo?.round;
-    return recentRound ?? 1;
-  })();
 
   // Featured match: live first, else most recent finished
   const featured = recent.find((e) => e.status.type === "inprogress")
