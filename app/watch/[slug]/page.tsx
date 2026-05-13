@@ -115,7 +115,7 @@ export default async function WatchPage({ params }: PageProps) {
                   title={channelName}
                 />
               ) : (
-                <OfflineState sourceUrl={data.sourceUrl} />
+                <OfflineState />
               )}
             </div>
           </div>
@@ -148,6 +148,51 @@ export default async function WatchPage({ params }: PageProps) {
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>MIE Empire</span>
         </div>
 
+        {/* Watch on StreamEast — always visible */}
+        <div style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)",
+          border: "1px solid rgba(59,130,246,0.3)",
+          borderRadius: 12,
+          padding: "1.1rem 1.4rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+        }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#60a5fa", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 3 }}>
+              Live Stream Available
+            </div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>
+              Watch this match live on <strong style={{ color: "#fff" }}>StreamEast</strong> — free, no account needed
+            </div>
+          </div>
+          <a
+            href="https://streameastv1.com/schedule/soccer"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "#1d4ed8",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "10px 22px",
+              fontSize: 14,
+              fontWeight: 800,
+              textDecoration: "none",
+              letterSpacing: 0.3,
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Watch on StreamEast
+          </a>
+        </div>
+
         {/* Other channels */}
         <OtherChannels current={slug} />
       </div>
@@ -167,7 +212,7 @@ export default async function WatchPage({ params }: PageProps) {
   );
 }
 
-function OfflineState({ sourceUrl }: { sourceUrl?: string }) {
+function OfflineState() {
   return (
     <div style={{
       position: "absolute", inset: 0,
@@ -175,40 +220,38 @@ function OfflineState({ sourceUrl }: { sourceUrl?: string }) {
       alignItems: "center", justifyContent: "center",
       background: "#050d1a",
       color: "rgba(255,255,255,0.3)",
-      gap: 16, textAlign: "center", padding: "2rem",
+      gap: 18, textAlign: "center", padding: "2rem",
     }}>
-      <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
+      <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
         <circle cx={12} cy={12} r={10} />
         <path strokeLinecap="round" d="M8.5 8.5l7 7M15.5 8.5l-7 7" />
       </svg>
       <div>
-        <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Stream Offline</p>
-        <p style={{ fontSize: 13, margin: "0 0 16px", maxWidth: 320 }}>
-          No stream found for this match. The channel may not be broadcasting yet or the match has ended.
+        <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Embedded Stream Unavailable</p>
+        <p style={{ fontSize: 13, margin: "0 0 20px", maxWidth: 300 }}>
+          Use StreamEast to watch this match for free — click below to open their live soccer page.
         </p>
-        {sourceUrl && (
-          <a
-            href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "rgba(255,255,255,0.7)",
-              borderRadius: 8,
-              padding: "8px 16px",
-              fontSize: 13,
-              fontWeight: 700,
-              textDecoration: "none",
-            }}
-          >
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            Open Stream Page
-          </a>
-        )}
+        <a
+          href="https://streameastv1.com/schedule/soccer"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: "#1d4ed8",
+            color: "#fff",
+            borderRadius: 8,
+            padding: "11px 24px",
+            fontSize: 14,
+            fontWeight: 800,
+            textDecoration: "none",
+            letterSpacing: 0.3,
+          }}
+        >
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch on StreamEast
+        </a>
       </div>
     </div>
   );

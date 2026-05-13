@@ -128,7 +128,7 @@ export default async function Home() {
                   e.T2?.[0]?.Nm ?? "",
                   streamMatches,
                 );
-                return <MatchCard key={e.Eid} event={e} isLive watchSlug={slug ?? undefined} />;
+                return <MatchCard key={e.Eid} event={e} isLive watchSlug={slug ?? null} />;
               })}
             </div>
           </section>
@@ -201,10 +201,17 @@ function SectionLabel({ children, live }: { children: React.ReactNode; live?: bo
   );
 }
 
-function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: boolean; watchSlug?: string }) {
+function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: boolean; watchSlug?: string | null }) {
   const home = e.T1?.[0];
   const away = e.T2?.[0];
   const hasScore = e.Tr1 != null && e.Tr2 != null;
+
+  // If we have a soccertvhd slug → go to embed watch page
+  // Otherwise → go directly to StreamEast for all live matches
+  const watchHref = watchSlug
+    ? `/watch/${watchSlug}`
+    : "https://streameastv1.com/schedule/soccer";
+  const isExternal = !watchSlug;
 
   return (
     <div style={{
@@ -259,9 +266,14 @@ function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: bo
         </div>
       )}
 
-      {/* Watch button — only shown when a stream slug is matched */}
-      {isLive && watchSlug && (
-        <Link href={`/watch/${watchSlug}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+      {/* Watch button — always shown on live matches */}
+      {isLive && (
+        <Link
+          href={watchHref}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          style={{ textDecoration: "none", flexShrink: 0 }}
+        >
           <div style={{
             background: "#dc2626",
             color: "#fff",

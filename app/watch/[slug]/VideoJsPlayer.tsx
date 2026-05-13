@@ -51,7 +51,7 @@ export function VideoJsPlayer({
       });
 
       player.on("error", () => {
-        setStreamError("No live match on right now. These channels only broadcast top-tier matches (Champions League, World Cup, etc). Try again when a major match is on.");
+        setStreamError("The embedded stream could not load. Use the Watch on StreamEast button below to watch this match directly.");
       });
     });
 
@@ -78,29 +78,27 @@ export function VideoJsPlayer({
         <div>
           <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Stream Offline</p>
           <p style={{ fontSize: 13, margin: "0 0 18px", maxWidth: 320 }}>{streamError}</p>
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "rgba(255,255,255,0.7)",
-                borderRadius: 8,
-                padding: "8px 16px",
-                fontSize: 13,
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              Open Channel Directly
-            </a>
-          )}
+          <a
+            href="https://streameastv1.com/schedule/soccer"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "#1d4ed8",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "10px 20px",
+              fontSize: 14,
+              fontWeight: 800,
+              textDecoration: "none",
+              letterSpacing: 0.3,
+            }}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Watch on StreamEast
+          </a>
         </div>
       </div>
     );
