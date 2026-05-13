@@ -9,13 +9,14 @@ type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-// Convert a slug like "espanyol-vs-athletic-bilbao-2279747"
-// → { home: "espanyol", away: "athletic-bilbao", id: "2279747" }
+// Slug format: "team-a-vs-team-b-1234567" — only safe chars allowed
+const SAFE_SLUG_RE = /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/;
+
 function parseMatchSlug(slug: string) {
   const vsIdx = slug.indexOf("-vs-");
   if (vsIdx === -1) return null;
 
-  const afterVs = slug.slice(vsIdx + 4); // "athletic-bilbao-2279747"
+  const afterVs = slug.slice(vsIdx + 4);
   const idMatch = afterVs.match(/-(\d+)$/);
   if (!idMatch) return null;
 
@@ -33,6 +34,15 @@ function toTitle(slug: string) {
 export default async function WatchPage({ params }: PageProps) {
   const { slug } = await params;
 
+  // Reject slugs that don't match the expected pattern — prevents SSRF/abuse
+  if (!SAFE_SLUG_RE.test(slug)) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a", color: "#fff" }}>
+        <p>Invalid match link.</p>
+      </div>
+    );
+  }
+
   const parsed = parseMatchSlug(slug);
 
   let servers: string[] = [];
@@ -45,16 +55,10 @@ export default async function WatchPage({ params }: PageProps) {
     awayTeam = toTitle(parsed.away);
     matchTitle = `${homeTeam} vs ${awayTeam}`;
 
-    const iStreamSlug = `${parsed.home}-vs-${parsed.away}-${parsed.id}`;
-    servers = await scrapeMatchServers(iStreamSlug);
-
-    if (servers.length === 0) {
-      // fallback: link to istreameast schedule so user can find the match
-      servers = [`https://istreameast.is/schedule/soccer`];
-    }
+    // Scrape real embeddable URLs from istreameast.is server-side
+    servers = await scrapeMatchServers(slug);
   } else {
     matchTitle = toTitle(slug);
-    servers = ["https://istreameast.is/schedule/soccer"];
   }
 
   return (
@@ -147,7 +151,7 @@ export default async function WatchPage({ params }: PageProps) {
         }}>
           <span>🔒 Stream provided by third-party sources</span>
           <span style={{ margin: "0 4px" }}>·</span>
-          <span>If stream fails, click Server 2 above</span>
+          <span>If stream fails, try Server 2 or Server 3 above</span>
         </div>
 
       </main>
