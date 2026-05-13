@@ -223,6 +223,7 @@ export async function scrapeSoccerTvHdStream(
     primary:
       streams.find((stream) => stream.type === "hls") ??
       streams.find((stream) => stream.type === "dash") ??
+      streams.find((stream) => stream.type === "embed") ??
       streams[0] ??
       null,
     requestHeaders: {

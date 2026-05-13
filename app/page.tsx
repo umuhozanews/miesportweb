@@ -12,23 +12,58 @@ import {
   type LsEvent,
   type LsStage,
 } from "@/lib/livescoreCom";
-
-const WATCH_SLUG = "streameast-stream-east-live-streaming";
+import {
+  scrapeSoccerTvHdHomeMatches,
+  type ScrapedMatch,
+} from "@/lib/soccerTvHd";
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-export default async function Home() {
-  let stages: LsStage[] = [];
-  try {
-    stages = await getLsStages(getTodayDate(), "soccer");
-  } catch {
-    // livescore upstream unavailable
+// Normalize a team name to a set of significant words for fuzzy matching
+function normWords(s: string): Set<string> {
+  const words = s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")   // strip accents: é→e
+    .replace(/[^a-z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2);       // skip "fc", "de", "vs" etc.
+  return new Set(words);
+}
+
+// Find a matching soccertvhd slug for a livescore event
+function findStreamSlug(homeNm: string, awayNm: string, streamMatches: ScrapedMatch[]): string | null {
+  const homeW = normWords(homeNm);
+  const awayW = normWords(awayNm);
+
+  for (const m of streamMatches) {
+    if (!m.slug || !m.isLiveOrUpcoming) continue;
+    const nameW = normWords(m.name);
+
+    const homeHit = [...homeW].some((w) => nameW.has(w));
+    const awayHit = [...awayW].some((w) => nameW.has(w));
+
+    if (homeHit && awayHit) return m.slug;
   }
+  return null;
+}
+
+export default async function Home() {
+  // Fetch livescore data and soccertvhd stream list in parallel
+  const [stagesResult, streamResult] = await Promise.allSettled([
+    getLsStages(getTodayDate(), "soccer"),
+    scrapeSoccerTvHdHomeMatches(),
+  ]);
+
+  const stages: LsStage[] =
+    stagesResult.status === "fulfilled" ? stagesResult.value : [];
+  const streamMatches: ScrapedMatch[] =
+    streamResult.status === "fulfilled" ? streamResult.value.matches : [];
 
   const allEvents: LsEvent[] = stages.flatMap((s) => s.Events ?? []);
-  const liveEvents    = allEvents.filter(lsIsLive);
+  const liveEvents     = allEvents.filter(lsIsLive);
   const upcomingEvents = allEvents.filter(lsIsNS);
   const finishedEvents = allEvents.filter(lsIsFinished).slice(0, 10);
 
@@ -87,9 +122,14 @@ export default async function Home() {
           <section style={{ marginBottom: "1.75rem" }}>
             <SectionLabel live>Live Now</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-              {liveEvents.map((e) => (
-                <MatchCard key={e.Eid} event={e} isLive watchSlug={WATCH_SLUG} />
-              ))}
+              {liveEvents.map((e) => {
+                const slug = findStreamSlug(
+                  e.T1?.[0]?.Nm ?? "",
+                  e.T2?.[0]?.Nm ?? "",
+                  streamMatches,
+                );
+                return <MatchCard key={e.Eid} event={e} isLive watchSlug={slug ?? undefined} />;
+              })}
             </div>
           </section>
         )}
@@ -219,9 +259,9 @@ function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: bo
         </div>
       )}
 
-      {/* Watch button — only on live matches */}
+      {/* Watch button — only shown when a stream slug is matched */}
       {isLive && watchSlug && (
-        <Link href={`/watch/${watchSlug}`} style={{ textDecoration: "none", flexShrink: 0 }} title="Stream available for major matches (Champions League, World Cup, etc.)">
+        <Link href={`/watch/${watchSlug}`} style={{ textDecoration: "none", flexShrink: 0 }}>
           <div style={{
             background: "#dc2626",
             color: "#fff",

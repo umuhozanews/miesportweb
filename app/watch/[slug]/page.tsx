@@ -14,12 +14,10 @@ export default async function WatchPage({ params }: PageProps) {
   const data = await scrapeSoccerTvHdStream(slug);
   const primary = data.primary;
 
-  // The CDN (cachefly.net) has Access-Control-Allow-Origin: * so Video.js can
-  // load the HLS stream directly from the browser — no server proxy needed.
-  // The proxy was causing false offline states because datacenter IPs
-  // behave differently from real browser requests to the CDN.
-  const playerSrc = primary?.type === "hls" ? primary.url : null;
-  const isLive = playerSrc !== null;
+  // Prefer HLS, then DASH, then iframe embed
+  const hlsSrc = primary?.type === "hls" ? primary.url : null;
+  const embedSrc = !hlsSrc && primary?.type === "embed" ? primary.url : null;
+  const isLive = !!(hlsSrc ?? embedSrc);
 
   const title = slug
     .replace(/-/g, " ")
@@ -101,14 +99,23 @@ export default async function WatchPage({ params }: PageProps) {
         }}>
           <div style={{ position: "relative", paddingTop: "56.25%" }}>
             <div style={{ position: "absolute", inset: 0 }}>
-              {playerSrc ? (
+              {hlsSrc ? (
                 <VideoJsPlayer
                   playerId={`mie-${slug.replace(/[^a-z0-9_-]/gi, "-")}`}
-                  src={playerSrc}
+                  src={hlsSrc}
                   sourceUrl={data.sourceUrl}
                 />
+              ) : embedSrc ? (
+                <iframe
+                  src={embedSrc}
+                  style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                  allowFullScreen
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={channelName}
+                />
               ) : (
-                <OfflineState />
+                <OfflineState sourceUrl={data.sourceUrl} />
               )}
             </div>
           </div>
@@ -133,8 +140,8 @@ export default async function WatchPage({ params }: PageProps) {
             }} />
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
               {isLive
-                ? <><strong style={{ color: "#fff" }}>HD Adaptive</strong> &nbsp;·&nbsp; Stream Active</>
-                : <>Stream <strong style={{ color: "#ef4444" }}>Offline</strong> &nbsp;·&nbsp; No major match on</>
+                ? <><strong style={{ color: "#fff" }}>HD Stream</strong> &nbsp;·&nbsp; Active</>
+                : <>Stream <strong style={{ color: "#ef4444" }}>Offline</strong> &nbsp;·&nbsp; No match found</>
               }
             </span>
           </div>
@@ -160,7 +167,7 @@ export default async function WatchPage({ params }: PageProps) {
   );
 }
 
-function OfflineState() {
+function OfflineState({ sourceUrl }: { sourceUrl?: string }) {
   return (
     <div style={{
       position: "absolute", inset: 0,
@@ -168,7 +175,7 @@ function OfflineState() {
       alignItems: "center", justifyContent: "center",
       background: "#050d1a",
       color: "rgba(255,255,255,0.3)",
-      gap: 14, textAlign: "center", padding: "2rem",
+      gap: 16, textAlign: "center", padding: "2rem",
     }}>
       <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
         <circle cx={12} cy={12} r={10} />
@@ -177,11 +184,31 @@ function OfflineState() {
       <div>
         <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Stream Offline</p>
         <p style={{ fontSize: 13, margin: "0 0 16px", maxWidth: 320 }}>
-          No major match is live right now. These channels broadcast Champions League, World Cup, and similar top-tier events only.
+          No stream found for this match. The channel may not be broadcasting yet or the match has ended.
         </p>
-        <p style={{ fontSize: 12, margin: 0, color: "rgba(255,255,255,0.2)" }}>
-          Try another channel below or check back when a major match is on.
-        </p>
+        {sourceUrl && (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              color: "rgba(255,255,255,0.7)",
+              borderRadius: 8,
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Open Stream Page
+          </a>
+        )}
       </div>
     </div>
   );
