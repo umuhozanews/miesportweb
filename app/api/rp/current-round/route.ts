@@ -20,18 +20,23 @@ const HEADERS: Record<string, string> = {
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const seasonId = Number(sp.get("seasonId") ?? "0");
-  const round = Number(sp.get("round") ?? "1");
-  if (!seasonId || !round) return Response.json({ events: [] });
+  if (!seasonId) return Response.json({ round: 1 });
 
   try {
     const res = await fetch(
-      `${BASE}/unique-tournament/${UID}/season/${seasonId}/events/round/${round}`,
+      `${BASE}/unique-tournament/${UID}/season/${seasonId}/rounds`,
       { headers: HEADERS },
     );
-    if (!res.ok) return Response.json({ events: [] });
-    const data = (await res.json()) as { events?: unknown[] };
-    return Response.json({ events: data.events ?? [] });
+    if (!res.ok) return Response.json({ round: 1 });
+    const data = (await res.json()) as {
+      currentRound?: { round: number };
+      rounds?: Array<{ round: number }>;
+    };
+    const round =
+      data.currentRound?.round ??
+      (data.rounds?.length ? data.rounds[data.rounds.length - 1].round : 1);
+    return Response.json({ round });
   } catch {
-    return Response.json({ events: [] });
+    return Response.json({ round: 1 });
   }
 }

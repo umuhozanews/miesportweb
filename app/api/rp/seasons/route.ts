@@ -1,7 +1,5 @@
 export const runtime = "edge";
 
-import { type NextRequest } from "next/server";
-
 const BASE = "https://api.sofascore.com/api/v1";
 const UID = 10608;
 
@@ -17,21 +15,16 @@ const HEADERS: Record<string, string> = {
   "sec-fetch-site": "same-site",
 };
 
-export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams;
-  const seasonId = Number(sp.get("seasonId") ?? "0");
-  const round = Number(sp.get("round") ?? "1");
-  if (!seasonId || !round) return Response.json({ events: [] });
-
+export async function GET() {
   try {
     const res = await fetch(
-      `${BASE}/unique-tournament/${UID}/season/${seasonId}/events/round/${round}`,
+      `${BASE}/unique-tournament/${UID}/seasons`,
       { headers: HEADERS },
     );
-    if (!res.ok) return Response.json({ events: [] });
-    const data = (await res.json()) as { events?: unknown[] };
-    return Response.json({ events: data.events ?? [] });
+    if (!res.ok) return Response.json({ seasons: [] });
+    const data = (await res.json()) as { seasons?: unknown[] };
+    return Response.json({ seasons: data.seasons ?? [] });
   } catch {
-    return Response.json({ events: [] });
+    return Response.json({ seasons: [] });
   }
 }

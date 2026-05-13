@@ -86,7 +86,18 @@ export function RPMatchesClient({
       .catch(() => setLoading(false));
   }, [seasonId]);
 
-  useEffect(() => { load(initialRound); }, [load, initialRound]);
+  // Detect the real current round via edge API (bypasses server-side IP blocking)
+  useEffect(() => {
+    fetch(`/api/rp/current-round?seasonId=${seasonId}`)
+      .then((res) => res.json())
+      .then((d: { round?: number }) => {
+        const r = d.round ?? initialRound;
+        setRound(r);
+        load(r);
+      })
+      .catch(() => load(initialRound));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonId]);
 
   const prev = () => { if (round > 1) { const r = round - 1; setRound(r); load(r); } };
   const next = () => { const r = round + 1; setRound(r); load(r); };
