@@ -10,56 +10,71 @@ export function StreamPlayer({
   matchTitle: string;
 }) {
   const [active, setActive] = useState(0);
-  const labels = ["Main Server", "Server 2", "Server 3"];
+  const labels = servers.map((_, i) => (i === 0 ? "Main Server" : `Server ${i + 1}`));
 
   if (servers.length === 0) {
     return (
-      <div style={{
-        border: "2px solid rgba(220,38,38,0.3)",
-        borderRadius: 10,
-        background: "#050d1a",
-        aspectRatio: "16 / 9",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        textAlign: "center",
-        padding: "2rem",
-        color: "rgba(255,255,255,0.4)",
-      }}>
-        <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
-          <circle cx={12} cy={12} r={10} />
-          <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
-        </svg>
-        <div>
-          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>
-            Stream Not Available Yet
-          </p>
-          <p style={{ fontSize: 13, margin: "0 0 18px" }}>
-            Check back when the match goes live, or watch on StreamEast directly.
-          </p>
-          <a
-            href="https://istreameast.is/schedule/soccer"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#dc2626",
-              color: "#fff",
-              borderRadius: 8,
-              padding: "10px 20px",
-              fontSize: 14,
-              fontWeight: 800,
-              textDecoration: "none",
-              letterSpacing: 0.3,
-            }}
-          >
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            Open StreamEast
-          </a>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{
+          border: "2px solid rgba(220,38,38,0.3)",
+          borderRadius: 10,
+          background: "#050d1a",
+          aspectRatio: "16 / 9",
+          overflow: "hidden",
+          width: "100%",
+        }}>
+          <iframe
+            src="https://www.soccertvhd.com/sportsurge-sport-surge-live-streaming/"
+            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            allowFullScreen
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
+            title={matchTitle}
+          />
+        </div>
+        <div style={{
+          background: "#111",
+          borderRadius: 8,
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 10,
+        }}>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
+            Showing SoccerTV backup stream — main servers loading
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a
+              href="https://www.soccertvhd.com/sportsurge-sport-surge-live-streaming/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "#1d4ed8", color: "#fff", borderRadius: 6,
+                padding: "7px 14px", fontSize: 13, fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              SoccerTV HD
+            </a>
+            <a
+              href="https://istreameast.is/schedule/soccer"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "#dc2626", color: "#fff", borderRadius: 6,
+                padding: "7px 14px", fontSize: 13, fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              StreamEast
+            </a>
+          </div>
         </div>
       </div>
     );

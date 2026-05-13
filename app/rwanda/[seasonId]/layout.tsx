@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRPSeasons, getRPRecentMatches, getRPCurrentRound, tournamentImg } from "@/lib/rwandapl";
+import { getRPSeasons, tournamentImg } from "@/lib/rwandapl";
 import { RPMatchesClient } from "./RPMatchesClient";
 import { RPTabNav } from "./RPTabNav";
 
@@ -9,18 +9,9 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
   const { seasonId } = await params;
   const sid = Number(seasonId);
 
-  const [seasons, recent, latestRound] = await Promise.all([
-    getRPSeasons(),
-    getRPRecentMatches(sid),
-    getRPCurrentRound(sid),
-  ]);
-
+  // Only fetch seasons list (light call, cached 24h); all dynamic data loads client-side via Edge routes
+  const seasons = await getRPSeasons();
   const activeSeason = seasons.find((s) => s.id === sid);
-
-  // Featured match: live first, else most recent finished
-  const featured = recent.find((e) => e.status.type === "inprogress")
-    ?? [...recent].sort((a, b) => b.startTimestamp - a.startTimestamp)[0]
-    ?? null;
 
   return (
     <>
@@ -86,7 +77,7 @@ export default async function RwandaSeasonLayout({ params, children }: Props) {
       {/* ── TWO-COLUMN BODY ── */}
       <div className="panel-body">
         {/* Left: Matches panel */}
-        <RPMatchesClient seasonId={sid} initialRound={latestRound} featured={featured} />
+        <RPMatchesClient seasonId={sid} />
 
         {/* Right: Tabs + content */}
         <div>

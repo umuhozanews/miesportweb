@@ -28,7 +28,7 @@ async function rp<T>(path: string): Promise<T | null> {
       dispatcher: agent,
       headers: HEADERS,
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(3_000),
     });
     if (!res.ok) return null;
     return res.json() as T;

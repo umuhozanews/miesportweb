@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { StreamPlayer } from "./StreamPlayer";
 import { scrapeMatchServers } from "@/lib/iStreamEast";
+import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 
 export const dynamic = "force-dynamic";
 
@@ -55,8 +56,22 @@ export default async function WatchPage({ params }: PageProps) {
     awayTeam = toTitle(parsed.away);
     matchTitle = `${homeTeam} vs ${awayTeam}`;
 
-    // Scrape real embeddable URLs from istreameast.is server-side
-    servers = await scrapeMatchServers(slug);
+    // Scrape iStreamEast + soccertvhd sportsurge in parallel; merge as fallbacks
+    const [mainResult, tvhdResult] = await Promise.allSettled([
+      scrapeMatchServers(slug),
+      scrapeSoccerTvHdStream("sportsurge-sport-surge-live-streaming"),
+    ]);
+
+    const mainServers = mainResult.status === "fulfilled" ? mainResult.value : [];
+    const tvhdServers =
+      tvhdResult.status === "fulfilled"
+        ? tvhdResult.value.streams
+            .filter((s) => s.type === "embed" || s.type === "hls" || s.type === "mp4")
+            .map((s) => s.url)
+            .slice(0, 3)
+        : [];
+
+    servers = [...mainServers, ...tvhdServers];
   } else {
     matchTitle = toTitle(slug);
   }
