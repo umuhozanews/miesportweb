@@ -221,7 +221,7 @@ function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: bo
 
       {/* Watch button — only on live matches */}
       {isLive && watchSlug && (
-        <Link href={`/watch/${watchSlug}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+        <Link href={`/watch/${watchSlug}`} style={{ textDecoration: "none", flexShrink: 0 }} title="Stream available for major matches (Champions League, World Cup, etc.)">
           <div style={{
             background: "#dc2626",
             color: "#fff",

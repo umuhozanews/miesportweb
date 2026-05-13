@@ -19,6 +19,7 @@ export default async function WatchPage({ params }: PageProps) {
   // The proxy was causing false offline states because datacenter IPs
   // behave differently from real browser requests to the CDN.
   const playerSrc = primary?.type === "hls" ? primary.url : null;
+  const isLive = playerSrc !== null;
 
   const title = slug
     .replace(/-/g, " ")
@@ -75,8 +76,14 @@ export default async function WatchPage({ params }: PageProps) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span className="dot-live" />
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#22c55e", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Stream</span>
+              {isLive ? (
+                <>
+                  <span className="dot-live" />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#22c55e", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Stream</span>
+                </>
+              ) : (
+                <span style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: 1.5, textTransform: "uppercase" }}>Stream Channel</span>
+              )}
             </div>
             <h1 style={{ margin: 0, color: "#fff", fontSize: "clamp(1.1rem, 3vw, 1.75rem)", fontWeight: 900 }}>
               {channelName}
@@ -98,6 +105,7 @@ export default async function WatchPage({ params }: PageProps) {
                 <VideoJsPlayer
                   playerId={`mie-${slug.replace(/[^a-z0-9_-]/gi, "-")}`}
                   src={playerSrc}
+                  sourceUrl={data.sourceUrl}
                 />
               ) : (
                 <OfflineState />
@@ -117,9 +125,17 @@ export default async function WatchPage({ params }: PageProps) {
           gap: 8,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulse-dot 1.6s ease-in-out infinite" }} />
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: isLive ? "#22c55e" : "#ef4444",
+              display: "inline-block",
+              animation: isLive ? "pulse-dot 1.6s ease-in-out infinite" : "none",
+            }} />
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-              Streaming &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>HD Adaptive</strong>
+              {isLive
+                ? <><strong style={{ color: "#fff" }}>HD Adaptive</strong> &nbsp;·&nbsp; Stream Active</>
+                : <>Stream <strong style={{ color: "#ef4444" }}>Offline</strong> &nbsp;·&nbsp; No major match on</>
+              }
             </span>
           </div>
           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>MIE Empire</span>
@@ -154,14 +170,17 @@ function OfflineState() {
       color: "rgba(255,255,255,0.3)",
       gap: 14, textAlign: "center", padding: "2rem",
     }}>
-      <svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-        <line x1={2} y1={2} x2={22} y2={22} stroke="currentColor" strokeWidth={1} strokeLinecap="round" />
+      <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
+        <circle cx={12} cy={12} r={10} />
+        <path strokeLinecap="round" d="M8.5 8.5l7 7M15.5 8.5l-7 7" />
       </svg>
       <div>
-        <p style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.55)" }}>No Stream Found</p>
-        <p style={{ fontSize: 13, margin: 0, maxWidth: 320 }}>
-          Could not load stream info. Please try again or try another channel.
+        <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Stream Offline</p>
+        <p style={{ fontSize: 13, margin: "0 0 16px", maxWidth: 320 }}>
+          No major match is live right now. These channels broadcast Champions League, World Cup, and similar top-tier events only.
+        </p>
+        <p style={{ fontSize: 12, margin: 0, color: "rgba(255,255,255,0.2)" }}>
+          Try another channel below or check back when a major match is on.
         </p>
       </div>
     </div>

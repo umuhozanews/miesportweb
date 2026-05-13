@@ -25,9 +25,11 @@ let videoJsLoader: Promise<void> | null = null;
 export function VideoJsPlayer({
   playerId,
   src,
+  sourceUrl,
 }: {
   playerId: string;
   src: string;
+  sourceUrl?: string;
 }) {
   const [streamError, setStreamError] = useState<string | null>(null);
 
@@ -67,7 +69,7 @@ export function VideoJsPlayer({
         alignItems: "center", justifyContent: "center",
         background: "#050d1a",
         color: "rgba(255,255,255,0.35)",
-        gap: 14, textAlign: "center", padding: "2rem",
+        gap: 16, textAlign: "center", padding: "2rem",
       }}>
         <svg width={52} height={52} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25}>
           <circle cx={12} cy={12} r={10} />
@@ -75,7 +77,30 @@ export function VideoJsPlayer({
         </svg>
         <div>
           <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px", color: "rgba(255,255,255,0.6)" }}>Stream Offline</p>
-          <p style={{ fontSize: 13, margin: 0 }}>{streamError}</p>
+          <p style={{ fontSize: 13, margin: "0 0 18px", maxWidth: 320 }}>{streamError}</p>
+          {sourceUrl && (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "rgba(255,255,255,0.7)",
+                borderRadius: 8,
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Channel Directly
+            </a>
+          )}
         </div>
       </div>
     );
