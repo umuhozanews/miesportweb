@@ -162,9 +162,31 @@ export const getRPTopPlayers = cache(
   { revalidate: 3600 },
 );
 
+/* ── Season info / details ── */
+export type RPSeasonInfo = {
+  goals: number;
+  homeTeamWins: number;
+  awayTeamWins: number;
+  draws: number;
+  yellowCards: number;
+  redCards: number;
+  numberOfCompetitors: number;
+  notes?: string;
+};
+
+export const getRPSeasonInfo = cache(
+  async (sid: number): Promise<RPSeasonInfo | null> => {
+    const d = await rp<{ info: RPSeasonInfo }>(`/unique-tournament/${UID}/season/${sid}/info`);
+    return d?.info ?? null;
+  },
+  ["rp-season-info"],
+  { revalidate: 3600 },
+);
+
 /* ── Helpers ── */
 export function teamImg(id: number) { return `${BASE}/team/${id}/image`; }
 export function tournamentImg() { return `${BASE}/unique-tournament/${UID}/image`; }
+export function playerImg(id: number) { return `${BASE}/player/${id}/image`; }
 
 export function fmtRPDate(ts: number) {
   return new Date(ts * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" });

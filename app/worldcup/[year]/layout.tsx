@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { WC_YEARS, tournamentImg, seasonId } from "@/lib/worldcup";
+import { WC_YEARS, tournamentImg, seasonId, getWCRounds } from "@/lib/worldcup";
 import { WCMatchesClient } from "./WCMatchesClient";
 import { WCTabNav } from "./WCTabNav";
 
@@ -13,6 +13,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
   const sid = seasonId(year);
 
   const stages = year === "2026" ? STAGES_2026 : STAGES_DEFAULT;
+  const rounds = getWCRounds(year);
 
   return (
     <>
@@ -99,7 +100,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
       <div className="panel-body">
         {/* Left: Matches panel */}
         {sid ? (
-          <WCMatchesClient seasonId={sid} year={year} />
+          <WCMatchesClient seasonId={sid} year={year} rounds={rounds} />
         ) : (
           <div style={{ background: "#161616", borderRadius: 12, border: "1px solid #1e1e1e", padding: "2rem", textAlign: "center", color: "#444", fontSize: 13 }}>
             Match data unavailable for {year}
