@@ -56,22 +56,20 @@ export default async function WatchPage({ params }: PageProps) {
     awayTeam = toTitle(parsed.away);
     matchTitle = `${homeTeam} vs ${awayTeam}`;
 
-    // Scrape iStreamEast + soccertvhd sportsurge in parallel; merge as fallbacks
-    const [mainResult, tvhdResult] = await Promise.allSettled([
-      scrapeMatchServers(slug),
-      scrapeSoccerTvHdStream("sportsurge-sport-surge-live-streaming"),
-    ]);
+    // iStreamEast first (in-memory cached, fast)
+    const mainServers = await scrapeMatchServers(slug);
 
-    const mainServers = mainResult.status === "fulfilled" ? mainResult.value : [];
-    const tvhdServers =
-      tvhdResult.status === "fulfilled"
-        ? tvhdResult.value.streams
-            .filter((s) => s.type === "embed" || s.type === "hls" || s.type === "mp4")
-            .map((s) => s.url)
-            .slice(0, 3)
-        : [];
-
-    servers = [...mainServers, ...tvhdServers];
+    if (mainServers.length > 0) {
+      servers = mainServers;
+    } else {
+      // Only hit soccertvhd when iStreamEast has nothing (also cached for 5 min)
+      const tvhdResult = await scrapeSoccerTvHdStream("sportsurge-sport-surge-live-streaming").catch(() => null);
+      const tvhdServers = tvhdResult?.streams
+        .filter((s) => s.type === "embed" || s.type === "hls" || s.type === "mp4")
+        .map((s) => s.url)
+        .slice(0, 3) ?? [];
+      servers = tvhdServers;
+    }
   } else {
     matchTitle = toTitle(slug);
   }

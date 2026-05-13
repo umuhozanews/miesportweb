@@ -202,10 +202,17 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
   };
 }
 
+const streamCache = new Map<string, { data: SoccerTvHdStreamResult; ts: number }>();
+const STREAM_TTL = 5 * 60_000; // 5 minutes
+
 export async function scrapeSoccerTvHdStream(
   input: string,
 ): Promise<SoccerTvHdStreamResult> {
   const sourceUrl = toSoccerTvHdPostUrl(input);
+
+  const cached = streamCache.get(sourceUrl);
+  if (cached && Date.now() - cached.ts < STREAM_TTL) return cached.data;
+
   const html = await fetchText(sourceUrl);
   const htmlStreams = extractMediaResources(html, sourceUrl);
   const playlistStreams = await Promise.all(
@@ -215,7 +222,7 @@ export async function scrapeSoccerTvHdStream(
   );
   const streams = dedupeStreams([...htmlStreams, ...playlistStreams.flat()]);
 
-  return {
+  const result: SoccerTvHdStreamResult = {
     sourceUrl,
     slug: getSlug(sourceUrl) ?? "",
     scrapedAt: new Date().toISOString(),
@@ -231,6 +238,9 @@ export async function scrapeSoccerTvHdStream(
       userAgent: "Mozilla/5.0 soccer-scrapper",
     },
   };
+
+  streamCache.set(sourceUrl, { data: result, ts: Date.now() });
+  return result;
 }
 
 async function getHomepageWidgetId() {
@@ -255,6 +265,7 @@ async function fetchText(url: string) {
   const response = await undiciFetch(url, {
     dispatcher: tlsLenientAgent,
     cache: "no-store",
+    signal: AbortSignal.timeout(6_000),
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.9",
@@ -273,6 +284,7 @@ async function fetchStreamText(url: string, referer: string) {
   const response = await undiciFetch(url, {
     dispatcher: tlsLenientAgent,
     cache: "no-store",
+    signal: AbortSignal.timeout(4_000),
     headers: {
       accept:
         "application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,text/plain,*/*",
