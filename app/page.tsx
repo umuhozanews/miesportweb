@@ -123,12 +123,14 @@ export default async function Home() {
             <SectionLabel live>Live Now</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
               {liveEvents.map((e) => {
-                const slug = findStreamSlug(
-                  e.T1?.[0]?.Nm ?? "",
-                  e.T2?.[0]?.Nm ?? "",
-                  streamMatches,
-                );
-                return <MatchCard key={e.Eid} event={e} isLive watchSlug={slug ?? null} />;
+                const home = (e.T1?.[0]?.Nm ?? "").toLowerCase()
+                  .normalize("NFD").replace(/[̀-ͯ]/g, "")
+                  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                const away = (e.T2?.[0]?.Nm ?? "").toLowerCase()
+                  .normalize("NFD").replace(/[̀-ͯ]/g, "")
+                  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                const watchSlug = home && away ? `${home}-vs-${away}-${e.Eid}` : null;
+                return <MatchCard key={e.Eid} event={e} isLive watchSlug={watchSlug} />;
               })}
             </div>
           </section>
@@ -206,12 +208,8 @@ function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: bo
   const away = e.T2?.[0];
   const hasScore = e.Tr1 != null && e.Tr2 != null;
 
-  // If we have a soccertvhd slug → go to embed watch page
-  // Otherwise → go directly to StreamEast for all live matches
-  const watchHref = watchSlug
-    ? `/watch/${watchSlug}`
-    : "https://streameastv1.com/schedule/soccer";
-  const isExternal = !watchSlug;
+  const watchHref = watchSlug ? `/watch/${watchSlug}` : null;
+  const isExternal = false;
 
   return (
     <div style={{
@@ -266,12 +264,10 @@ function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: bo
         </div>
       )}
 
-      {/* Watch button — always shown on live matches */}
-      {isLive && (
+      {/* Watch button — shown on live matches that have a slug */}
+      {isLive && watchHref && (
         <Link
           href={watchHref}
-          target={isExternal ? "_blank" : undefined}
-          rel={isExternal ? "noopener noreferrer" : undefined}
           style={{ textDecoration: "none", flexShrink: 0 }}
         >
           <div style={{
