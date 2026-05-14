@@ -5,10 +5,6 @@ import Image from "next/image";
 import {
   getLsStages,
   lsIsLive,
-  lsIsNS,
-  lsIsFinished,
-  lsTime,
-  lsDate,
   type LsEvent,
   type LsStage,
 } from "@/lib/livescoreCom";
@@ -16,100 +12,160 @@ import {
   scrapeIStreamSchedule,
   type IStreamMatch,
 } from "@/lib/iStreamEast";
+import {
+  getStreamedFootballMatches,
+  findStreamedMatch,
+  type StreamedMatchInfo,
+} from "@/lib/streamedSu";
+import {
+  scrapeSoccerTvHdHomeMatches,
+  type ScrapedMatch,
+} from "@/lib/soccerTvHd";
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-// Normalize a team name to a set of significant words for fuzzy matching
 function normWords(s: string): Set<string> {
   const words = s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")   // strip accents: é→e
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9 ]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2);       // skip "fc", "de", "vs" etc.
+    .filter((w) => w.length > 2);
   return new Set(words);
 }
 
-// Find a matching istreameast slug for a livescore event
 function findIStreamSlug(homeNm: string, awayNm: string, iMatches: IStreamMatch[]): string | null {
   const homeW = normWords(homeNm);
   const awayW = normWords(awayNm);
-
   for (const m of iMatches) {
     const mHomeW = normWords(m.home.replace(/-/g, " "));
     const mAwayW = normWords(m.away.replace(/-/g, " "));
-
     const homeHit = [...homeW].some((w) => mHomeW.has(w));
     const awayHit = [...awayW].some((w) => mAwayW.has(w));
-
     if (homeHit && awayHit) return m.slug;
   }
   return null;
 }
 
+function teamInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return name.slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function normToSlug(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getStvSlug(match: ScrapedMatch): string {
+  const parts = match.name.split(/\s+vs\.?\s+/i);
+  const home = normToSlug(parts[0]?.trim() ?? "home");
+  const away = normToSlug(parts[1]?.trim() ?? "away");
+  return `stv-${home}-vs-${away}`;
+}
+
 export default async function Home() {
-  // Fetch livescore data and istreameast schedule in parallel
-  const [stagesResult, iStreamResult] = await Promise.allSettled([
+  const [stagesResult, iStreamResult, streamedResult, stvResult] = await Promise.allSettled([
     getLsStages(getTodayDate(), "soccer"),
     scrapeIStreamSchedule(),
+    getStreamedFootballMatches(),
+    scrapeSoccerTvHdHomeMatches(),
   ]);
 
   const stages: LsStage[] =
     stagesResult.status === "fulfilled" ? stagesResult.value : [];
   const iStreamMatches: IStreamMatch[] =
     iStreamResult.status === "fulfilled" ? iStreamResult.value : [];
+  const streamedMatches: StreamedMatchInfo[] =
+    streamedResult.status === "fulfilled" ? streamedResult.value : [];
 
+  // STV matches — primary streaming source
+  const now = new Date();
+  const stvRaw: ScrapedMatch[] =
+    stvResult.status === "fulfilled" ? stvResult.value.matches : [];
+  const stvMatches = stvRaw
+    .filter((m) => new Date(m.endIso) > now)
+    .map((m) => ({ match: m, slug: getStvSlug(m) }))
+    .filter(({ slug }) => /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/.test(slug));
+
+  // Other live matches (fallback — exclude any already shown via STV)
+  const stvNames = new Set(stvMatches.map(({ match: m }) => m.name.toLowerCase()));
   const allEvents: LsEvent[] = stages.flatMap((s) => s.Events ?? []);
-  const liveEvents     = allEvents.filter(lsIsLive);
-  const upcomingEvents = allEvents.filter(lsIsNS);
-  const finishedEvents = allEvents.filter(lsIsFinished).slice(0, 10);
+  const liveEventsWithStream = allEvents
+    .filter(lsIsLive)
+    .filter((e) => {
+      const nm = `${e.T1?.[0]?.Nm ?? ""} vs ${e.T2?.[0]?.Nm ?? ""}`.toLowerCase();
+      return !stvNames.has(nm);
+    })
+    .map((e) => {
+      const homeNm = e.T1?.[0]?.Nm ?? "";
+      const awayNm = e.T2?.[0]?.Nm ?? "";
+      const iSlug = findIStreamSlug(homeNm, awayNm, iStreamMatches);
+      if (iSlug) return { event: e, watchSlug: iSlug };
+      const suMatch = findStreamedMatch(homeNm, awayNm, streamedMatches);
+      if (suMatch) return { event: e, watchSlug: `su-${suMatch.id}` };
+      return { event: e, watchSlug: null };
+    })
+    .filter((x) => x.watchSlug !== null);
+
+  const count = liveEventsWithStream.length;
+  const stvCount = stvMatches.length;
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-page)", color: "var(--t-primary)", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#0a0a0f", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── NAV ── */}
       <header style={{
-        background: "var(--brand-navy)",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        background: "linear-gradient(180deg, #0d1428 0%, #08090f 100%)",
+        borderBottom: "1px solid rgba(0,102,255,0.18)",
         padding: "0 1.25rem",
-        height: 54,
+        height: 58,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
+        boxShadow: "0 1px 0 rgba(0,102,255,0.12), 0 4px 28px rgba(0,0,0,0.7)",
         flexShrink: 0,
         gap: 12,
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+        backdropFilter: "blur(18px)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <Image src="/mie-logo.png" alt="MIE Empire" width={36} height={36}
-            style={{ borderRadius: 7, display: "block" }} />
+            style={{ borderRadius: 8, display: "block" }} />
           <div>
             <div style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.5 }}>MIE Sport</div>
-            <div style={{ color: "#5b9bd5", fontSize: 9, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>Live Football</div>
+            <div style={{ color: "#0066ff", fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Live Football</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link href="/livescore" style={{
             textDecoration: "none",
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            color: "#c8d8f0",
-            borderRadius: 7,
-            padding: "5px 12px",
+            background: "rgba(0,102,255,0.1)",
+            border: "1px solid rgba(0,102,255,0.28)",
+            color: "#7ab4ff",
+            borderRadius: 8,
+            padding: "5px 13px",
             fontSize: 12,
             fontWeight: 700,
             whiteSpace: "nowrap",
           }}>
             📊 Scores
           </Link>
-          {liveEvents.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-              <span className="dot-live" />
-              <span style={{ color: "var(--c-live)", fontSize: 12, fontWeight: 700 }}>{liveEvents.length}</span>
-            </div>
+          {(stvCount > 0 || count > 0) && (
+            <span className="mc-sticky-pill">
+              <span className="dot-live-red" />
+              {stvCount + count} LIVE
+            </span>
           )}
         </div>
       </header>
@@ -117,48 +173,92 @@ export default async function Home() {
       {/* ── MAIN ── */}
       <main style={{ flex: 1, maxWidth: 780, width: "100%", margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
-        {/* LIVE */}
-        {liveEvents.length > 0 && (
-          <section style={{ marginBottom: "1.75rem" }}>
-            <SectionLabel live>Live Now</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-              {liveEvents.map((e) => {
-                const homeNm = e.T1?.[0]?.Nm ?? "";
-                const awayNm = e.T2?.[0]?.Nm ?? "";
-                const watchSlug = findIStreamSlug(homeNm, awayNm, iStreamMatches);
-                return <MatchCard key={e.Eid} event={e} isLive watchSlug={watchSlug} />;
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* UPCOMING */}
-        {upcomingEvents.length > 0 && (
-          <section style={{ marginBottom: "1.75rem" }}>
-            <SectionLabel>Upcoming</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-              {upcomingEvents.map((e) => (
-                <MatchCard key={e.Eid} event={e} isLive={false} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* FINISHED */}
-        {finishedEvents.length > 0 && liveEvents.length === 0 && upcomingEvents.length === 0 && (
+        {stvCount > 0 || count > 0 ? (
           <section>
-            <SectionLabel>Today&apos;s Results</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-              {finishedEvents.map((e) => (
-                <MatchCard key={e.Eid} event={e} isLive={false} />
-              ))}
+            {/* Sticky streaming bar */}
+            <div className="mc-sticky-bar">
+              <span className="dot-live-red" />
+              <span className="mc-sticky-label">Streaming Now</span>
+              <span className="mc-sticky-pill">
+                {stvCount + count} match{stvCount + count > 1 ? "es" : ""}
+              </span>
             </div>
-          </section>
-        )}
 
-        {liveEvents.length === 0 && upcomingEvents.length === 0 && finishedEvents.length === 0 && (
-          <div style={{ textAlign: "center", padding: "4rem 1rem", color: "var(--t-tertiary)", fontSize: 14 }}>
-            No matches found for today.
+            {/* STV PRIMARY section */}
+            {stvCount > 0 && (
+              <>
+                <div className="mc-section-hdr">
+                  <span className="dot-live-red" />
+                  <span className="mc-section-hdr-title">Live Now</span>
+                  <div className="mc-section-hdr-line" />
+                  <span className="mc-section-hdr-count">
+                    {stvCount} match{stvCount > 1 ? "es" : ""}
+                  </span>
+                </div>
+                <div className="mc-list">
+                  {stvMatches.map(({ match, slug }) => (
+                    <STVMatchCard key={match.id} match={match} watchSlug={slug} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Other live matches (iStreamEast / streamed.su) */}
+            {count > 0 && (
+              <>
+                <div className="mc-section-hdr" style={{ marginTop: stvCount > 0 ? 24 : 0 }}>
+                  <span className="dot-live-red" />
+                  <span className="mc-section-hdr-title">More Live</span>
+                  <div className="mc-section-hdr-line" />
+                  <span className="mc-section-hdr-count">
+                    {count} match{count > 1 ? "es" : ""}
+                  </span>
+                </div>
+                <div className="mc-list">
+                  {liveEventsWithStream.map(({ event: e, watchSlug }) => (
+                    <MatchCard key={e.Eid} event={e} watchSlug={watchSlug} />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        ) : (
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: "5rem 1rem", gap: 18, textAlign: "center",
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: "50%",
+              background: "rgba(0,102,255,0.08)",
+              border: "1px solid rgba(0,102,255,0.15)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="rgba(0,102,255,0.4)" strokeWidth={1.5}>
+                <circle cx={12} cy={12} r={10} />
+                <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
+              </svg>
+            </div>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700, margin: 0 }}>
+              No live matches right now
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, margin: 0 }}>
+              Check back when matches kick off — this page updates automatically.
+            </p>
+            <Link href="/livescore" style={{
+              marginTop: 4,
+              textDecoration: "none",
+              background: "linear-gradient(90deg, #0066ff, #00c6ff)",
+              color: "#fff",
+              borderRadius: 10,
+              padding: "10px 22px",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+              boxShadow: "0 4px 20px rgba(0,102,255,0.4)",
+            }}>
+              View Today&apos;s Schedule →
+            </Link>
           </div>
         )}
 
@@ -166,17 +266,17 @@ export default async function Home() {
 
       {/* ── FOOTER ── */}
       <footer style={{
-        borderTop: "1px solid rgba(255,255,255,0.05)",
+        borderTop: "1px solid rgba(0,102,255,0.1)",
         padding: "1rem 1.5rem",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         flexWrap: "wrap",
         gap: 8,
-        background: "var(--brand-navy)",
+        background: "rgba(6,8,18,0.8)",
       }}>
-        <span style={{ fontSize: 12, color: "#2a3a54" }}>© {new Date().getFullYear()} MIE Empire</span>
-        <span style={{ fontSize: 12, color: "#2a3a54" }}>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.12)" }}>© {new Date().getFullYear()} MIE Empire</span>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.12)" }}>
           Special thanks to{" "}
           <a href="https://www.atomiq.rw/" target="_blank" rel="noopener noreferrer"
             style={{ color: "#f5a623", fontWeight: 700, textDecoration: "none" }}>ATOMIQ</a>
@@ -187,104 +287,120 @@ export default async function Home() {
   );
 }
 
-function SectionLabel({ children, live }: { children: React.ReactNode; live?: boolean }) {
+function MatchCard({ event: e, watchSlug }: { event: LsEvent; watchSlug?: string | null }) {
+  const home = e.T1?.[0];
+  const away = e.T2?.[0];
+  const hasScore = e.Tr1 != null && e.Tr2 != null;
+  const watchHref = watchSlug ? `/watch/${watchSlug}` : null;
+
+  const statusLabel = e.Eps || "LIVE";
+  const isLive = !["HT", "FT", "AET"].includes(statusLabel);
+  const competition = [e.Stg?.Snm, e.Stg?.Cnm].filter(Boolean).join(" · ");
+
+  const homeInit = teamInitials(home?.Nm ?? "HM");
+  const awayInit = teamInitials(away?.Nm ?? "AW");
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {live && <span className="dot-live" />}
-      <span style={{ fontSize: 10, fontWeight: 800, color: live ? "var(--c-live)" : "var(--t-label)", letterSpacing: 1.5, textTransform: "uppercase" }}>
-        {children}
-      </span>
-      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
+    <div className={`mc-card${isLive ? " mc-card-live" : ""}`}>
+
+      {/* Top: competition + status pill */}
+      <div className="mc-top">
+        <span className="mc-competition">{competition || "Football"}</span>
+        {isLive ? (
+          <span className="mc-live-pill">
+            <span className="dot-b" />
+            {statusLabel === "LIVE" ? "LIVE" : statusLabel}
+          </span>
+        ) : (
+          <span className="mc-status-pill">{statusLabel}</span>
+        )}
+      </div>
+
+      {/* Center: avatars + score */}
+      <div className="mc-center">
+        {/* Home team */}
+        <div className="mc-team">
+          <div className="mc-avatar mc-avatar-home">{homeInit}</div>
+          <div className="mc-team-name">{home?.Nm ?? "Home"}</div>
+        </div>
+
+        {/* Score */}
+        <div className="mc-score">
+          {hasScore ? (
+            <>
+              <div className={`mc-score-num${isLive ? " mc-score-num-live" : ""}`}>
+                {e.Tr1}&thinsp;–&thinsp;{e.Tr2}
+              </div>
+              <div className="mc-score-label">Score</div>
+            </>
+          ) : (
+            <div className="mc-score-vs">VS</div>
+          )}
+        </div>
+
+        {/* Away team */}
+        <div className="mc-team">
+          <div className="mc-avatar mc-avatar-away">{awayInit}</div>
+          <div className="mc-team-name">{away?.Nm ?? "Away"}</div>
+        </div>
+      </div>
+
+      {/* Watch Now CTA */}
+      {watchHref && (
+        <Link href={watchHref} className="mc-watch-btn">
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch Now
+        </Link>
+      )}
     </div>
   );
 }
 
-function MatchCard({ event: e, isLive, watchSlug }: { event: LsEvent; isLive: boolean; watchSlug?: string | null }) {
-  const home = e.T1?.[0];
-  const away = e.T2?.[0];
-  const hasScore = e.Tr1 != null && e.Tr2 != null;
-
-  const watchHref = watchSlug ? `/watch/${watchSlug}` : null;
-  const isExternal = false;
+function STVMatchCard({ match, watchSlug }: { match: ScrapedMatch; watchSlug: string }) {
+  const nameParts = match.name.split(/\s+vs\.?\s+/i);
+  const home = nameParts[0]?.trim() ?? match.name;
+  const away = nameParts[1]?.trim() ?? "";
+  const isLive = new Date() >= new Date(match.startIso) && new Date() <= new Date(match.endIso);
+  const startTime = new Date(match.startIso);
+  const timeLabel = isLive
+    ? "LIVE"
+    : startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const homeInit = teamInitials(home);
+  const awayInit = teamInitials(away);
 
   return (
-    <div style={{
-      background: "#0d1523",
-      border: `1px solid ${isLive ? "rgba(34,197,94,0.2)" : "rgba(255,255,255,0.05)"}`,
-      borderRadius: 10,
-      padding: "12px 14px",
-      display: "flex",
-      alignItems: "center",
-      gap: 14,
-    }}>
-      {/* Time / status */}
-      <div style={{ minWidth: 48, flexShrink: 0, textAlign: "center" }}>
+    <div className={`mc-card${isLive ? " mc-card-live" : ""}`}>
+      <div className="mc-top">
+        <span className="mc-competition">Soccer TV HD</span>
         {isLive ? (
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--c-live)", lineHeight: 1.3 }}>
-            {["HT", "FT", "AET"].includes(e.Eps) ? e.Eps : e.Eps || "LIVE"}
-          </div>
+          <span className="mc-live-pill">
+            <span className="dot-b" />LIVE
+          </span>
         ) : (
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--c-time)" }}>
-            {lsTime(e.Esd)}
-          </div>
-        )}
-        <div style={{ fontSize: 10, color: "var(--t-label)", marginTop: 1 }}>
-          {lsDate(e.Esd)}
-        </div>
-      </div>
-
-      {/* Teams */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#dde4f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {home?.Nm ?? "Home"} <span style={{ color: "var(--t-label)", fontWeight: 400, fontSize: 11 }}>vs</span> {away?.Nm ?? "Away"}
-        </div>
-        {e.Stg?.Snm && (
-          <div style={{ fontSize: 10, color: "var(--t-label)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {e.Stg.Snm}{e.Stg.Cnm ? ` · ${e.Stg.Cnm}` : ""}
-          </div>
+          <span className="mc-status-pill">{timeLabel}</span>
         )}
       </div>
-
-      {/* Score */}
-      {hasScore && (
-        <div style={{
-          fontSize: 16,
-          fontWeight: 900,
-          color: isLive ? "var(--c-live)" : "var(--t-primary)",
-          flexShrink: 0,
-          fontVariantNumeric: "tabular-nums",
-          minWidth: 40,
-          textAlign: "center",
-        }}>
-          {e.Tr1} – {e.Tr2}
+      <div className="mc-center">
+        <div className="mc-team">
+          <div className="mc-avatar mc-avatar-home">{homeInit}</div>
+          <div className="mc-team-name">{home}</div>
         </div>
-      )}
-
-      {/* Watch button — shown on live matches that have a slug */}
-      {isLive && watchHref && (
-        <Link
-          href={watchHref}
-          style={{ textDecoration: "none", flexShrink: 0 }}
-        >
-          <div style={{
-            background: "#dc2626",
-            color: "#fff",
-            borderRadius: 7,
-            padding: "6px 12px",
-            fontSize: 12,
-            fontWeight: 800,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            letterSpacing: 0.3,
-          }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            Watch
-          </div>
-        </Link>
-      )}
+        <div className="mc-score">
+          <div className="mc-score-vs">VS</div>
+        </div>
+        <div className="mc-team">
+          <div className="mc-avatar mc-avatar-away">{awayInit}</div>
+          <div className="mc-team-name">{away}</div>
+        </div>
+      </div>
+      <Link href={`/watch/${watchSlug}`} className="mc-watch-btn">
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        Watch Now
+      </Link>
     </div>
   );
 }
