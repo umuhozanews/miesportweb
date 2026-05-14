@@ -46,7 +46,15 @@ async function ServerPlayer({
     if (url && !seen.has(url)) { seen.add(url); servers.push(url); }
   };
 
-  // ── soccertvhd PRIMARY (always try first) ──────────────────────────────────
+  // For stv- slugs: add the soccertvhd.com page as a direct iframe embed (Server 1).
+  // soccertvhd.com has no X-Frame-Options → it can embed in the browser directly.
+  // The browser sends Referer: soccertvhd.com → CDN allows the HLS stream.
+  // This works even when the Vercel/AWS HLS proxy is CDN-blocked.
+  if (slug.startsWith("stv-")) {
+    add("https://www.soccertvhd.com/score808-score808-live/");
+  }
+
+  // HLS proxy (cleaner player; works where the CDN isn't IP-restricted, e.g. locally)
   try {
     const stv = await scrapeSoccerTvHdStream("score808-score808-live");
     for (const res of stv.streams) {
