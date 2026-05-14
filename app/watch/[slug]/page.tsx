@@ -2,10 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { StreamPlayer } from "./StreamPlayer";
-import { scrapeMatchServers } from "@/lib/iStreamEast";
+import { scrapeMatchServers, scrapeIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
-import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
-import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
 export const dynamic = "force-dynamic";
 
@@ -46,19 +44,6 @@ async function ServerPlayer({
     if (url && !seen.has(url)) { seen.add(url); servers.push(url); }
   };
 
-  // ── soccertvhd PRIMARY (always try first) ──────────────────────────────────
-  try {
-    const stv = await scrapeSoccerTvHdStream("score808-score808-live");
-    for (const res of stv.streams) {
-      if (!res.url || res.url.includes("soccertvhd.com")) continue;
-      const proxied =
-        res.type === "hls" || res.type === "dash"
-          ? getProxiedHlsUrl(res.url)
-          : res.url;
-      add(proxied);
-    }
-  } catch { /* fall through */ }
-
   // Direct streamed.su lookup by match ID
   if (slug.startsWith("su-")) {
     const suId = slug.slice(3);
@@ -71,8 +56,7 @@ async function ServerPlayer({
     return <StreamPlayer slug={slug} matchTitle={matchTitle} initialServers={servers} />;
   }
 
-  // For stv- slugs: derive home/away from slug (stv-home-team-vs-away-team)
-  // so we can fall back to streamed.su when soccertvhd.com is unreachable (e.g. on Vercel)
+  // For stv- slugs: parse home/away for team-name lookups
   let effectiveParsed = parsed;
   if (!effectiveParsed && slug.startsWith("stv-")) {
     const inner = slug.slice(4);
@@ -85,24 +69,45 @@ async function ServerPlayer({
     }
   }
 
-  const [iStreamResult, streamedResult] = await Promise.allSettled([
-    slug.startsWith("stv-") ? Promise.resolve([]) : scrapeMatchServers(slug),
-    getStreamedFootballMatches(),
-  ]);
+  if (slug.startsWith("stv-") && effectiveParsed) {
+    // iStreamEast: search by team name → iframe embeds loaded by the browser
+    // (browser's IP hits the CDN, not Vercel's — bypasses cachefly IP block)
+    const [scheduleResult, streamedResult] = await Promise.allSettled([
+      scrapeIStreamSchedule(),
+      getStreamedFootballMatches(),
+    ]);
 
-  if (iStreamResult.status === "fulfilled") {
-    iStreamResult.value.forEach(add);
-  }
+    if (scheduleResult.status === "fulfilled") {
+      const iMatch = findIStreamMatch(effectiveParsed.home, effectiveParsed.away, scheduleResult.value);
+      if (iMatch) {
+        const embeds = await scrapeMatchServers(iMatch.slug);
+        embeds.forEach(add);
+      }
+    }
 
-  if (streamedResult.status === "fulfilled" && effectiveParsed) {
-    const match = findStreamedMatch(
-      effectiveParsed.home,
-      effectiveParsed.away,
-      streamedResult.value,
-    );
-    if (match) {
-      const embeds = await getStreamedEmbeds(match);
-      embeds.forEach(add);
+    if (streamedResult.status === "fulfilled") {
+      const match = findStreamedMatch(effectiveParsed.home, effectiveParsed.away, streamedResult.value);
+      if (match) {
+        const embeds = await getStreamedEmbeds(match);
+        embeds.forEach(add);
+      }
+    }
+  } else {
+    const [iStreamResult, streamedResult] = await Promise.allSettled([
+      scrapeMatchServers(slug),
+      getStreamedFootballMatches(),
+    ]);
+
+    if (iStreamResult.status === "fulfilled") {
+      iStreamResult.value.forEach(add);
+    }
+
+    if (streamedResult.status === "fulfilled" && effectiveParsed) {
+      const match = findStreamedMatch(effectiveParsed.home, effectiveParsed.away, streamedResult.value);
+      if (match) {
+        const embeds = await getStreamedEmbeds(match);
+        embeds.forEach(add);
+      }
     }
   }
 

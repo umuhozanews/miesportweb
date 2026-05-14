@@ -18,7 +18,7 @@ const STREAM_REFERERS: Record<keyof typeof STREAM_SOURCES, string> = {
 type StreamSource = keyof typeof STREAM_SOURCES;
 
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
-const SOURCE_BY_HOST = new Map(
+const SOURCE_BY_HOST = new Map<string, StreamSource>(
   Object.entries(STREAM_SOURCES).map(([k, v]) => [v, k as StreamSource]),
 );
 

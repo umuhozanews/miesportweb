@@ -1,4 +1,4 @@
-import { scrapeMatchServers } from "@/lib/iStreamEast";
+import { scrapeMatchServers, scrapeIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
 
 export const dynamic = "force-dynamic";
@@ -43,12 +43,25 @@ export async function GET(request: Request) {
   };
 
   if (slug.startsWith("stv-")) {
-    // stv- slugs: soccertvhd is IP-blocked on Vercel, fall back to streamed.su only
     const parsed = parseStvSlug(slug);
     if (parsed) {
-      const matches = await getStreamedFootballMatches().catch(() => null);
-      if (matches) {
-        const match = findStreamedMatch(parsed.home, parsed.away, matches);
+      const [scheduleResult, streamedResult] = await Promise.allSettled([
+        scrapeIStreamSchedule(),
+        getStreamedFootballMatches(),
+      ]);
+
+      // iStreamEast iframe embeds — loaded by browser, bypasses Vercel IP block
+      if (scheduleResult.status === "fulfilled") {
+        const iMatch = findIStreamMatch(parsed.home, parsed.away, scheduleResult.value);
+        if (iMatch) {
+          const embeds = await scrapeMatchServers(iMatch.slug);
+          embeds.forEach(add);
+        }
+      }
+
+      // streamed.su as fallback
+      if (streamedResult.status === "fulfilled") {
+        const match = findStreamedMatch(parsed.home, parsed.away, streamedResult.value);
         if (match) {
           const embeds = await getStreamedEmbeds(match);
           embeds.forEach(add);

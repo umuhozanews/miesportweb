@@ -151,3 +151,32 @@ export async function scrapeMatchServers(slug: string): Promise<string[]> {
 
   return servers;
 }
+
+// ─── Team-name fuzzy match (mirrors streamedSu logic) ────────────────────────
+function normWords(s: string): Set<string> {
+  return new Set(
+    s.toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2),
+  );
+}
+
+export function findIStreamMatch(
+  homeNm: string,
+  awayNm: string,
+  matches: IStreamMatch[],
+): IStreamMatch | null {
+  const hw = normWords(homeNm);
+  const aw = normWords(awayNm);
+  for (const m of matches) {
+    const mhw = normWords(m.home.replace(/-/g, " "));
+    const maw = normWords(m.away.replace(/-/g, " "));
+    const homeHit = [...hw].some((w) => mhw.has(w));
+    const awayHit = [...aw].some((w) => maw.has(w));
+    if (homeHit && awayHit) return m;
+  }
+  return null;
+}
