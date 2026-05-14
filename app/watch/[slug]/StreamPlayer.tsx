@@ -104,7 +104,7 @@ export function StreamPlayer({
                   <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
-                  {url.includes("soccertvhd.com") ? "SoccerTV HD" : url.startsWith("/api/hls/") ? "HLS Stream" : `Server ${i + 1}`}
+                  {i === 0 ? "Stream 1" : `Server ${i + 1}`}
                 </button>
               ))}
             </div>
