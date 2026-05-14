@@ -67,12 +67,12 @@ function FeaturedCard({ event: e }: { event: RPEvent }) {
 
 export function RPMatchesClient({
   seasonId,
-  initialRound,
-  featured,
+  initialRound = 1,
+  featured = null,
 }: {
   seasonId: number;
-  initialRound: number;
-  featured: RPEvent | null;
+  initialRound?: number;
+  featured?: RPEvent | null;
 }) {
   const [round, setRound] = useState(initialRound);
   const [events, setEvents] = useState<RPEvent[]>([]);

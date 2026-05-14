@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { type WCEvent, wcRoundNavLabel } from "@/lib/worldcup";
+import { type WCEvent, wcRoundNavLabel } from "@/lib/worldcup-client";
 
 const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#6b90b8", live: "#22c55e", blue: "#60a5fa" };
 
@@ -39,6 +39,12 @@ export function WCMatchesClient({
   const [roundIdx, setRoundIdx] = useState(0);
   const [events, setEvents] = useState<WCEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prevSid, setPrevSid] = useState(seasonId);
+
+  if (seasonId !== prevSid) {
+    setPrevSid(seasonId);
+    setRoundIdx(0);
+  }
 
   const currentRound = rounds[roundIdx] ?? 1;
 
@@ -50,7 +56,9 @@ export function WCMatchesClient({
       .catch(() => setLoading(false));
   }, [seasonId]);
 
-  useEffect(() => { load(rounds[0] ?? 1); }, [load, rounds]);
+  useEffect(() => {
+    load(currentRound);
+  }, [load, currentRound]);
 
   const prev = () => {
     if (roundIdx > 0) {
