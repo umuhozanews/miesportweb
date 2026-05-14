@@ -12,7 +12,7 @@ export function StreamPlayer({
   initialServers?: string[];
 }) {
   const [servers, setServers] = useState<string[] | null>(
-    initialServers !== undefined ? initialServers : null,
+    initialServers && initialServers.length > 0 ? initialServers : null,
   );
   const [active, setActive] = useState(0);
   const [prevSlug, setPrevSlug] = useState(slug);
@@ -26,7 +26,7 @@ export function StreamPlayer({
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (initialServers !== undefined) return;
+    if (initialServers && initialServers.length > 0) return;
 
     const ctrl = new AbortController();
     abortRef.current = ctrl;

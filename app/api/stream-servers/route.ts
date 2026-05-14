@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/;
 
-function parseSlug(slug: string): { home: string; away: string } | null {
+function parseIStreamSlug(slug: string): { home: string; away: string } | null {
   const vsIdx = slug.indexOf("-vs-");
   if (vsIdx === -1) return null;
   const afterVs = slug.slice(vsIdx + 4);
@@ -17,6 +17,17 @@ function parseSlug(slug: string): { home: string; away: string } | null {
   };
 }
 
+function parseStvSlug(slug: string): { home: string; away: string } | null {
+  if (!slug.startsWith("stv-")) return null;
+  const inner = slug.slice(4);
+  const vsIdx = inner.indexOf("-vs-");
+  if (vsIdx === -1) return null;
+  return {
+    home: inner.slice(0, vsIdx).replace(/-/g, " "),
+    away: inner.slice(vsIdx + 4).replace(/-/g, " "),
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("slug") ?? "";
@@ -25,32 +36,42 @@ export async function GET(request: Request) {
     return Response.json({ servers: [] }, { status: 400 });
   }
 
-  const parsed = parseSlug(slug);
-
-  // Query both sources in parallel
-  const [iStreamResult, streamedResult] = await Promise.allSettled([
-    scrapeMatchServers(slug),
-    getStreamedFootballMatches(),
-  ]);
-
   const seen = new Set<string>();
   const servers: string[] = [];
-
   const add = (url: string) => {
     if (url && !seen.has(url)) { seen.add(url); servers.push(url); }
   };
 
-  // iStreamEast servers come first — they are match-specific
-  if (iStreamResult.status === "fulfilled") {
-    iStreamResult.value.forEach(add);
-  }
+  if (slug.startsWith("stv-")) {
+    // stv- slugs: soccertvhd is IP-blocked on Vercel, fall back to streamed.su only
+    const parsed = parseStvSlug(slug);
+    if (parsed) {
+      const matches = await getStreamedFootballMatches().catch(() => null);
+      if (matches) {
+        const match = findStreamedMatch(parsed.home, parsed.away, matches);
+        if (match) {
+          const embeds = await getStreamedEmbeds(match);
+          embeds.forEach(add);
+        }
+      }
+    }
+  } else {
+    const parsed = parseIStreamSlug(slug);
+    const [iStreamResult, streamedResult] = await Promise.allSettled([
+      scrapeMatchServers(slug),
+      getStreamedFootballMatches(),
+    ]);
 
-  // streamed.su embeds as secondary sources
-  if (streamedResult.status === "fulfilled" && parsed) {
-    const match = findStreamedMatch(parsed.home, parsed.away, streamedResult.value);
-    if (match) {
-      const embeds = await getStreamedEmbeds(match);
-      embeds.forEach(add);
+    if (iStreamResult.status === "fulfilled") {
+      iStreamResult.value.forEach(add);
+    }
+
+    if (streamedResult.status === "fulfilled" && parsed) {
+      const match = findStreamedMatch(parsed.home, parsed.away, streamedResult.value);
+      if (match) {
+        const embeds = await getStreamedEmbeds(match);
+        embeds.forEach(add);
+      }
     }
   }
 

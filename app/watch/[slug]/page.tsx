@@ -71,8 +71,22 @@ async function ServerPlayer({
     return <StreamPlayer slug={slug} matchTitle={matchTitle} initialServers={servers} />;
   }
 
+  // For stv- slugs: derive home/away from slug (stv-home-team-vs-away-team)
+  // so we can fall back to streamed.su when soccertvhd.com is unreachable (e.g. on Vercel)
+  let effectiveParsed = parsed;
+  if (!effectiveParsed && slug.startsWith("stv-")) {
+    const inner = slug.slice(4);
+    const vsIdx = inner.indexOf("-vs-");
+    if (vsIdx !== -1) {
+      effectiveParsed = {
+        home: inner.slice(0, vsIdx).replace(/-/g, " "),
+        away: inner.slice(vsIdx + 4).replace(/-/g, " "),
+      };
+    }
+  }
+
   const [iStreamResult, streamedResult] = await Promise.allSettled([
-    scrapeMatchServers(slug),
+    slug.startsWith("stv-") ? Promise.resolve([]) : scrapeMatchServers(slug),
     getStreamedFootballMatches(),
   ]);
 
@@ -80,10 +94,10 @@ async function ServerPlayer({
     iStreamResult.value.forEach(add);
   }
 
-  if (streamedResult.status === "fulfilled" && parsed) {
+  if (streamedResult.status === "fulfilled" && effectiveParsed) {
     const match = findStreamedMatch(
-      parsed.home.replace(/-/g, " "),
-      parsed.away.replace(/-/g, " "),
+      effectiveParsed.home,
+      effectiveParsed.away,
       streamedResult.value,
     );
     if (match) {

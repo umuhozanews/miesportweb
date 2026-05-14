@@ -161,8 +161,16 @@ export type SoccerTvHdStreamResult = {
   };
 };
 
+// Cached fallback — avoids fetching soccertvhd.com homepage (IP-blocked on some hosts)
+const FALLBACK_WIDGET_ID = "feba0ba4-3d63-4db8-8a0a-5e37b58b3fcc";
+
 export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
-  const widgetId = await getHomepageWidgetId();
+  let widgetId: string;
+  try {
+    widgetId = await getHomepageWidgetId();
+  } catch {
+    widgetId = FALLBACK_WIDGET_ID;
+  }
   const bootUrl = getBootUrl(widgetId);
   const boot = await fetchJson<ElfsightBootResponse>(bootUrl);
   const widget = boot.data?.widgets?.[widgetId];
