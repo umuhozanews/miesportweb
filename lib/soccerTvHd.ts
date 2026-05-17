@@ -1,10 +1,5 @@
-import { Agent, fetch as undiciFetch } from "undici";
-
 const HOME_URL = "https://www.soccertvhd.com/";
 const SITE_ORIGIN = "https://www.soccertvhd.com";
-
-// soccertvhd.com and elfsight.com use certificate chains not in Node's built-in CA store
-const tlsLenientAgent = new Agent({ connect: { rejectUnauthorized: false } });
 const WIDGET_ID_PATTERN =
   /elfsight-app-([a-f0-9-]{36}|[a-z0-9-]+)/i;
 const MEDIA_URL_PATTERN =
@@ -270,8 +265,7 @@ function getBootUrl(widgetId: string) {
 }
 
 async function fetchText(url: string) {
-  const response = await undiciFetch(url, {
-    dispatcher: tlsLenientAgent,
+  const response = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(6_000),
     headers: {
@@ -289,8 +283,7 @@ async function fetchText(url: string) {
 }
 
 async function fetchStreamText(url: string, referer: string) {
-  const response = await undiciFetch(url, {
-    dispatcher: tlsLenientAgent,
+  const response = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(4_000),
     headers: {
@@ -312,8 +305,7 @@ async function fetchStreamText(url: string, referer: string) {
 }
 
 async function fetchJson<T>(url: string) {
-  const response = await undiciFetch(url, {
-    dispatcher: tlsLenientAgent,
+  const response = await fetch(url, {
     cache: "no-store",
     headers: {
       accept: "application/json",

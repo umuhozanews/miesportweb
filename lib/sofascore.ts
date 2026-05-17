@@ -1,8 +1,6 @@
-import { Agent, fetch as undiciFetch } from "undici";
 import { unstable_cache as cache } from "next/cache";
 
 const BASE = "https://api.sofascore.com/api/v1";
-const agent = new Agent({ connect: { rejectUnauthorized: false } });
 
 const HEADERS = {
   "user-agent":
@@ -112,8 +110,7 @@ export type SfTopPlayer = {
 
 async function sf<T>(path: string): Promise<T | null> {
   try {
-    const res = await undiciFetch(`${BASE}${path}`, {
-      dispatcher: agent,
+    const res = await fetch(`${BASE}${path}`, {
       headers: HEADERS,
       cache: "no-store",
     });

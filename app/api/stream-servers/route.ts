@@ -1,5 +1,7 @@
 import { scrapeMatchServers, scrapeIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
+import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
+import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +19,18 @@ function parseIStreamSlug(slug: string): { home: string; away: string } | null {
   };
 }
 
-function parseStvSlug(slug: string): { home: string; away: string } | null {
+function parseStvSlug(slug: string): { home: string; away: string; stvPageSlug: string | null } | null {
   if (!slug.startsWith("stv-")) return null;
   const inner = slug.slice(4);
-  const vsIdx = inner.indexOf("-vs-");
+  const sepIdx = inner.indexOf("--");
+  const teamsPart = sepIdx !== -1 ? inner.slice(0, sepIdx) : inner;
+  const stvPageSlug = sepIdx !== -1 ? inner.slice(sepIdx + 2) || null : null;
+  const vsIdx = teamsPart.indexOf("-vs-");
   if (vsIdx === -1) return null;
   return {
-    home: inner.slice(0, vsIdx).replace(/-/g, " "),
-    away: inner.slice(vsIdx + 4).replace(/-/g, " "),
+    home: teamsPart.slice(0, vsIdx).replace(/-/g, " "),
+    away: teamsPart.slice(vsIdx + 4).replace(/-/g, " "),
+    stvPageSlug,
   };
 }
 
@@ -50,7 +56,6 @@ export async function GET(request: Request) {
         getStreamedFootballMatches(),
       ]);
 
-      // iStreamEast iframe embeds — loaded by browser, bypasses Vercel IP block
       if (scheduleResult.status === "fulfilled") {
         const iMatch = findIStreamMatch(parsed.home, parsed.away, scheduleResult.value);
         if (iMatch) {
@@ -59,13 +64,24 @@ export async function GET(request: Request) {
         }
       }
 
-      // streamed.su as fallback
       if (streamedResult.status === "fulfilled") {
         const match = findStreamedMatch(parsed.home, parsed.away, streamedResult.value);
         if (match) {
           const embeds = await getStreamedEmbeds(match);
           embeds.forEach(add);
         }
+      }
+
+      // Fallback: scrape soccertvhd.com directly (works on CF Workers + local dev)
+      if (parsed.stvPageSlug) {
+        try {
+          const stvStream = await scrapeSoccerTvHdStream(parsed.stvPageSlug);
+          for (const s of stvStream.streams) {
+            if (s.type === "embed") add(s.url);
+            else if (s.type === "hls" || s.type === "dash") add(getProxiedHlsUrl(s.url));
+          }
+        } catch { /* IP-blocked on Vercel — fall through to raw page URL */ }
+        add(`https://www.soccertvhd.com/${parsed.stvPageSlug}/`);
       }
     }
   } else {

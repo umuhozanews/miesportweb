@@ -4,6 +4,8 @@ import Image from "next/image";
 import { StreamPlayer } from "./StreamPlayer";
 import { scrapeMatchServers, scrapeIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
+import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
+import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
 export const dynamic = "force-dynamic";
 
@@ -56,22 +58,25 @@ async function ServerPlayer({
     return <StreamPlayer slug={slug} matchTitle={matchTitle} initialServers={servers} />;
   }
 
-  // For stv- slugs: parse home/away for team-name lookups
+  // For stv- slugs: parse home/away and optional soccertvhd.com page slug
+  // Slug format: stv-home-vs-away--soccertvhd-page-slug
   let effectiveParsed = parsed;
+  let stvPageSlug: string | null = null;
   if (!effectiveParsed && slug.startsWith("stv-")) {
     const inner = slug.slice(4);
-    const vsIdx = inner.indexOf("-vs-");
+    const sepIdx = inner.indexOf("--");
+    const teamsPart = sepIdx !== -1 ? inner.slice(0, sepIdx) : inner;
+    stvPageSlug = sepIdx !== -1 ? inner.slice(sepIdx + 2) || null : null;
+    const vsIdx = teamsPart.indexOf("-vs-");
     if (vsIdx !== -1) {
       effectiveParsed = {
-        home: inner.slice(0, vsIdx).replace(/-/g, " "),
-        away: inner.slice(vsIdx + 4).replace(/-/g, " "),
+        home: teamsPart.slice(0, vsIdx).replace(/-/g, " "),
+        away: teamsPart.slice(vsIdx + 4).replace(/-/g, " "),
       };
     }
   }
 
   if (slug.startsWith("stv-") && effectiveParsed) {
-    // iStreamEast: search by team name → iframe embeds loaded by the browser
-    // (browser's IP hits the CDN, not Vercel's — bypasses cachefly IP block)
     const [scheduleResult, streamedResult] = await Promise.allSettled([
       scrapeIStreamSchedule(),
       getStreamedFootballMatches(),
@@ -91,6 +96,20 @@ async function ServerPlayer({
         const embeds = await getStreamedEmbeds(match);
         embeds.forEach(add);
       }
+    }
+
+    // Fallback: scrape soccertvhd.com directly (works on CF Workers + local dev)
+    if (stvPageSlug) {
+      try {
+        const stvStream = await scrapeSoccerTvHdStream(stvPageSlug);
+        for (const s of stvStream.streams) {
+          if (s.type === "embed") add(s.url);
+          else if (s.type === "hls" || s.type === "dash") add(getProxiedHlsUrl(s.url));
+        }
+      } catch { /* IP-blocked on Vercel — fall through to raw page URL */ }
+      // Always include the raw soccertvhd.com page as a last-resort option;
+      // the browser's IP is not blocked so the embedded player loads correctly
+      add(`https://www.soccertvhd.com/${stvPageSlug}/`);
     }
   } else {
     const [iStreamResult, streamedResult] = await Promise.allSettled([
@@ -163,11 +182,13 @@ export default async function WatchPage({ params }: PageProps) {
   let parsed: { home: string; away: string } | null = null;
 
   if (slug.startsWith("stv-")) {
-    // stv-real-madrid-vs-real-oviedo → parse home/away from slug
+    // stv-home-vs-away--soccertvhd-page-slug → strip '--' suffix before parsing team names
     const inner = slug.slice(4);
-    const vsIdx = inner.indexOf("-vs-");
-    homeTeam = vsIdx !== -1 ? toTitle(inner.slice(0, vsIdx)) : "";
-    awayTeam = vsIdx !== -1 ? toTitle(inner.slice(vsIdx + 4)) : "";
+    const sepIdx = inner.indexOf("--");
+    const teamsPart = sepIdx !== -1 ? inner.slice(0, sepIdx) : inner;
+    const vsIdx = teamsPart.indexOf("-vs-");
+    homeTeam = vsIdx !== -1 ? toTitle(teamsPart.slice(0, vsIdx)) : "";
+    awayTeam = vsIdx !== -1 ? toTitle(teamsPart.slice(vsIdx + 4)) : "";
     matchTitle = homeTeam && awayTeam ? `${homeTeam} vs ${awayTeam}` : "Live Match";
   } else if (slug.startsWith("su-")) {
     const suId = slug.slice(3);

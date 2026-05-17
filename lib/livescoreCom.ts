@@ -1,9 +1,7 @@
-import { Agent, fetch as undiciFetch } from "undici";
 import { unstable_cache as cache } from "next/cache";
 
 const BASE = "https://mev-api.live-lsm.ls-g.net";
 const EAT_OFFSET = 2; // Rwanda / East Africa Time = UTC+2
-const agent = new Agent({ connect: { rejectUnauthorized: false } });
 
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -101,8 +99,7 @@ export type LsTable = {
 async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stages: LsStage[] } | null> {
   const d = date.replace(/-/g, "");
   try {
-    const res = await undiciFetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
-      dispatcher: agent,
+    const res = await fetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
       headers: HEADERS,
       cache: "no-store",
     });
@@ -115,8 +112,7 @@ async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stage
 
 async function lsFetchRaw<T>(path: string): Promise<T | null> {
   try {
-    const res = await undiciFetch(`${BASE}${path}`, {
-      dispatcher: agent,
+    const res = await fetch(`${BASE}${path}`, {
       headers: HEADERS,
       cache: "no-store",
     });

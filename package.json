@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "next:build": "next build",
-    "build": "opennextjs-cloudflare build",
+    "build": "opennextjs-cloudflare build && node scripts/patch-cf-handler.mjs",
     "start": "next start",
     "lint": "eslint",
     "preview": "npm run build && opennextjs-cloudflare preview",
@@ -15,8 +15,8 @@
     "scrape": "node scripts/scrape-soccertvhd.mjs"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "^1.19.5",
-    "next": "16.2.4",
+    "@opennextjs/cloudflare": "^1.19.10",
+    "next": "^16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -26,7 +26,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.87.0"

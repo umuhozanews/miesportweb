@@ -19,5 +19,8 @@
   ],
   "observability": {
     "enabled": true
+  },
+  "alias": {
+    "@opentelemetry/api": "./.open-next/server-functions/default/node_modules/next/dist/compiled/@opentelemetry/api/index.js"
   }
 }

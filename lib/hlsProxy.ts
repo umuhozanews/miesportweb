@@ -1,9 +1,4 @@
-import { Agent, fetch as undiciFetch } from "undici";
-
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
-
-// Stream CDN hosts use certificate chains not in Node's built-in CA store
-const tlsLenientAgent = new Agent({ connect: { rejectUnauthorized: false } });
 const STREAM_SOURCES = {
   bustrr: "bustrr.cachefly.net",
   laliscorr: "laliscorr.cachefly.net",
@@ -160,11 +155,10 @@ async function fetchUpstream(request: Request, streamUrl: URL) {
 
   for (const url of urls) {
     for (const mode of attempts) {
-      response = await undiciFetch(url, {
-        dispatcher: tlsLenientAgent,
+      response = await fetch(url, {
         cache: "no-store",
         headers: upstreamHeaders(request, streamUrl, mode),
-      }) as unknown as Response;
+      });
 
       if (await isUsableUpstreamResponse(response)) {
         return response;

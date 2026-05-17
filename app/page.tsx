@@ -69,7 +69,9 @@ function getStvSlug(match: ScrapedMatch): string {
   const parts = match.name.split(/\s+vs\.?\s+/i);
   const home = normToSlug(parts[0]?.trim() ?? "home");
   const away = normToSlug(parts[1]?.trim() ?? "away");
-  return `stv-${home}-vs-${away}`;
+  const base = `stv-${home}-vs-${away}`;
+  // Append the soccertvhd.com page slug after '--' so the watch page can scrape it directly
+  return match.slug ? `${base}--${match.slug}` : base;
 }
 
 export default async function Home() {

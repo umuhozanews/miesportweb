@@ -1,5 +1,4 @@
 import "server-only";
-import { Agent, fetch as undiciFetch } from "undici";
 import { unstable_cache as cache } from "next/cache";
 
 // Re-export everything client-safe so existing server-component imports keep working
@@ -9,7 +8,6 @@ import type { WCEvent, WCStandingRow, WCGroup, WCTopPlayer, WCSeasonInfo } from 
 const BASE = "https://api.sofascore.com/api/v1";
 const UID = 16;
 
-const agent = new Agent({ connect: { rejectUnauthorized: false } });
 const HEADERS = {
   "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   accept: "application/json, text/plain, */*",
@@ -29,8 +27,7 @@ const HEADERS = {
 
 async function wc<T>(path: string): Promise<T | null> {
   try {
-    const res = await undiciFetch(`${BASE}${path}`, {
-      dispatcher: agent,
+    const res = await fetch(`${BASE}${path}`, {
       headers: HEADERS,
       cache: "no-store",
       signal: AbortSignal.timeout(3_000),

@@ -107,6 +107,20 @@ export function StreamPlayer({
                   {i === 0 ? "Stream 1" : `Server ${i + 1}`}
                 </button>
               ))}
+              {rawUrl && (
+                <a
+                  href={rawUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="sp-btn sp-btn-idle"
+                  style={{ textDecoration: "none" }}
+                >
+                  <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Open Tab
+                </a>
+              )}
             </div>
           </>
         )}
@@ -123,7 +137,6 @@ export function StreamPlayer({
             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
             referrerPolicy="no-referrer-when-downgrade"
             title={matchTitle}
           />
@@ -137,7 +150,7 @@ export function StreamPlayer({
             <circle cx={12} cy={12} r={10} />
             <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
           </svg>
-          <span>Popup &amp; redirect ads are blocked. If the stream is black, try another server above.</span>
+          <span>If the player shows an error, click <strong>Open Tab</strong> to watch directly in a new tab.</span>
         </div>
       )}
     </div>

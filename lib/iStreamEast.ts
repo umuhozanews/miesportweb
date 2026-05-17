@@ -1,7 +1,4 @@
-import { Agent, fetch as undiciFetch } from "undici";
-
 const SITE = "https://istreameast.is";
-const agent = new Agent({ connect: { rejectUnauthorized: false } });
 
 // Rotate through multiple realistic Chrome UAs so requests look organic
 const UAS = [
@@ -39,8 +36,7 @@ function browserHeaders(referer: string) {
 
 async function fetchHtml(url: string, referer = SITE): Promise<string> {
   try {
-    const res = await undiciFetch(url, {
-      dispatcher: agent,
+    const res = await fetch(url, {
       signal: AbortSignal.timeout(12_000),
       headers: browserHeaders(referer),
     });
