@@ -17,18 +17,25 @@ type StreamedStream = {
   headers?: Record<string, string>;
 };
 
+type CFRequestInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
+
 async function apiFetch<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${API}${path}`, {
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         referer: "https://streamed.su/",
         origin: "https://streamed.su",
         accept: "application/json",
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
       },
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(10_000),
       cache: "no-store",
-    });
+      // CF Workers: share this fetch result across all Worker instances
+      cf: { cacheTtl: 120, cacheEverything: true },
+    } as CFRequestInit as RequestInit);
     if (!res.ok) return null;
     return res.json() as Promise<T>;
   } catch {

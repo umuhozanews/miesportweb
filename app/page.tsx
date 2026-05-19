@@ -5,11 +5,12 @@ import Image from "next/image";
 import {
   getLsStages,
   lsIsLive,
+  lsIsNS,
   type LsEvent,
   type LsStage,
 } from "@/lib/livescoreCom";
 import {
-  scrapeIStreamSchedule,
+  getCachedIStreamSchedule,
   type IStreamMatch,
 } from "@/lib/iStreamEast";
 import {
@@ -18,7 +19,7 @@ import {
   type StreamedMatchInfo,
 } from "@/lib/streamedSu";
 import {
-  scrapeSoccerTvHdHomeMatches,
+  getCachedStvHomeMatches,
   type ScrapedMatch,
 } from "@/lib/soccerTvHd";
 
@@ -77,9 +78,9 @@ function getStvSlug(match: ScrapedMatch): string {
 export default async function Home() {
   const [stagesResult, iStreamResult, streamedResult, stvResult] = await Promise.allSettled([
     getLsStages(getTodayDate(), "soccer"),
-    scrapeIStreamSchedule(),
+    getCachedIStreamSchedule(),
     getStreamedFootballMatches(),
-    scrapeSoccerTvHdHomeMatches(),
+    getCachedStvHomeMatches(),
   ]);
 
   const stages: LsStage[] =
@@ -98,27 +99,40 @@ export default async function Home() {
     .map((m) => ({ match: m, slug: getStvSlug(m) }))
     .filter(({ slug }) => /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/.test(slug));
 
-  // Other live matches (fallback — exclude any already shown via STV)
+  // Other matches (live + upcoming) — exclude any already shown via STV
   const stvNames = new Set(stvMatches.map(({ match: m }) => m.name.toLowerCase()));
   const allEvents: LsEvent[] = stages.flatMap((s) => s.Events ?? []);
+
+  function toWatchEntry(e: LsEvent) {
+    const homeNm = e.T1?.[0]?.Nm ?? "";
+    const awayNm = e.T2?.[0]?.Nm ?? "";
+    const iSlug = findIStreamSlug(homeNm, awayNm, iStreamMatches);
+    if (iSlug) return { event: e, watchSlug: iSlug };
+    const suMatch = findStreamedMatch(homeNm, awayNm, streamedMatches);
+    if (suMatch) return { event: e, watchSlug: `su-${suMatch.id}` };
+    return { event: e, watchSlug: null };
+  }
+
+  function notInStv(e: LsEvent) {
+    const nm = `${e.T1?.[0]?.Nm ?? ""} vs ${e.T2?.[0]?.Nm ?? ""}`.toLowerCase();
+    return !stvNames.has(nm);
+  }
+
   const liveEventsWithStream = allEvents
     .filter(lsIsLive)
-    .filter((e) => {
-      const nm = `${e.T1?.[0]?.Nm ?? ""} vs ${e.T2?.[0]?.Nm ?? ""}`.toLowerCase();
-      return !stvNames.has(nm);
-    })
-    .map((e) => {
-      const homeNm = e.T1?.[0]?.Nm ?? "";
-      const awayNm = e.T2?.[0]?.Nm ?? "";
-      const iSlug = findIStreamSlug(homeNm, awayNm, iStreamMatches);
-      if (iSlug) return { event: e, watchSlug: iSlug };
-      const suMatch = findStreamedMatch(homeNm, awayNm, streamedMatches);
-      if (suMatch) return { event: e, watchSlug: `su-${suMatch.id}` };
-      return { event: e, watchSlug: null };
-    })
+    .filter(notInStv)
+    .map(toWatchEntry)
     .filter((x) => x.watchSlug !== null);
 
+  const upcomingEventsWithStream = allEvents
+    .filter(lsIsNS)
+    .filter(notInStv)
+    .map(toWatchEntry)
+    .filter((x) => x.watchSlug !== null)
+    .slice(0, 10);
+
   const count = liveEventsWithStream.length;
+  const upcomingCount = upcomingEventsWithStream.length;
   const stvCount = stvMatches.length;
 
   return (
@@ -169,22 +183,29 @@ export default async function Home() {
               {stvCount + count} LIVE
             </span>
           )}
+          {upcomingCount > 0 && count === 0 && stvCount === 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#7ab4ff", background: "rgba(0,102,255,0.1)", border: "1px solid rgba(0,102,255,0.22)", borderRadius: 6, padding: "3px 9px" }}>
+              {upcomingCount} UPCOMING
+            </span>
+          )}
         </div>
       </header>
 
       {/* ── MAIN ── */}
       <main style={{ flex: 1, maxWidth: 780, width: "100%", margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
-        {stvCount > 0 || count > 0 ? (
+        {stvCount > 0 || count > 0 || upcomingCount > 0 ? (
           <section>
-            {/* Sticky streaming bar */}
-            <div className="mc-sticky-bar">
-              <span className="dot-live-red" />
-              <span className="mc-sticky-label">Streaming Now</span>
-              <span className="mc-sticky-pill">
-                {stvCount + count} match{stvCount + count > 1 ? "es" : ""}
-              </span>
-            </div>
+            {/* Sticky bar */}
+            {(stvCount > 0 || count > 0) && (
+              <div className="mc-sticky-bar">
+                <span className="dot-live-red" />
+                <span className="mc-sticky-label">Streaming Now</span>
+                <span className="mc-sticky-pill">
+                  {stvCount + count} match{stvCount + count > 1 ? "es" : ""}
+                </span>
+              </div>
+            )}
 
             {/* STV PRIMARY section */}
             {stvCount > 0 && (
@@ -218,6 +239,25 @@ export default async function Home() {
                 </div>
                 <div className="mc-list">
                   {liveEventsWithStream.map(({ event: e, watchSlug }) => (
+                    <MatchCard key={e.Eid} event={e} watchSlug={watchSlug} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Upcoming matches with stream links */}
+            {upcomingCount > 0 && (
+              <>
+                <div className="mc-section-hdr" style={{ marginTop: stvCount > 0 || count > 0 ? 24 : 0 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7ab4ff", flexShrink: 0 }} />
+                  <span className="mc-section-hdr-title">Upcoming</span>
+                  <div className="mc-section-hdr-line" />
+                  <span className="mc-section-hdr-count">
+                    {upcomingCount} match{upcomingCount > 1 ? "es" : ""}
+                  </span>
+                </div>
+                <div className="mc-list">
+                  {upcomingEventsWithStream.map(({ event: e, watchSlug }) => (
                     <MatchCard key={e.Eid} event={e} watchSlug={watchSlug} />
                   ))}
                 </div>

@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
+// Allow self-signed / incomplete TLS chains for local dev on Windows.
+// This has no effect in production (CF Workers run their own TLS stack).
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 if (!process.env.VERCEL) {
   initOpenNextCloudflareForDev();
 }
@@ -32,10 +36,31 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        // Tell browsers not to cache API responses
-        source: "/api/(.*)",
+        // HLS/stream proxy — never cache at the browser or CDN level
+        source: "/api/hls/(.*)",
         headers: [
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+        ],
+      },
+      {
+        // Match list — cache at the Cloudflare edge for 5 minutes
+        source: "/api/matches",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=300, stale-while-revalidate=60" },
+        ],
+      },
+      {
+        // Stream server list — cache at the CF edge for 1 minute
+        source: "/api/stream-servers",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=30" },
+        ],
+      },
+      {
+        // Livescore proxy — cache at the CF edge for 30 seconds
+        source: "/api/livescore-proxy/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=30, stale-while-revalidate=15" },
         ],
       },
     ];

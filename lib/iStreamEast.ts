@@ -1,20 +1,28 @@
+import { unstable_cache as cache } from "next/cache";
+
 const SITE = "https://istreameast.is";
 
 // Rotate through multiple realistic Chrome UAs so requests look organic
 const UAS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
 ];
 
-function pickUA() {
+function pickUA(): string {
   return UAS[Math.floor(Date.now() / 30_000) % UAS.length];
 }
 
+type CFRequestInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
+
+function cfInit(base: RequestInit, ttl: number): CFRequestInit {
+  return { ...base, cf: { cacheTtl: ttl, cacheEverything: true } };
+}
+
 // Full Chrome browser header set — looks like a real navigation request
-function browserHeaders(referer: string) {
-  const ua = pickUA();
+function browserHeaders(referer: string, ua = pickUA()) {
   return {
     "user-agent": ua,
     accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -26,7 +34,7 @@ function browserHeaders(referer: string) {
     "sec-fetch-mode": "navigate",
     "sec-fetch-site": "same-origin",
     "sec-fetch-user": "?1",
-    "sec-ch-ua": `"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"`,
+    "sec-ch-ua": `"Chromium";v="125", "Google Chrome";v="125", "Not-A.Brand";v="99"`,
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": `"Windows"`,
     referer,
@@ -35,26 +43,39 @@ function browserHeaders(referer: string) {
 }
 
 async function fetchHtml(url: string, referer = SITE): Promise<string> {
+  const ua = pickUA();
+
+  // First attempt
   try {
-    const res = await fetch(url, {
+    const res = await fetch(url, cfInit({
       signal: AbortSignal.timeout(12_000),
-      headers: browserHeaders(referer),
-    });
-    if (!res.ok) return "";
-    return res.text();
+      headers: browserHeaders(referer, ua),
+    }, 150) as RequestInit); // 2.5 min shared CF edge cache
+    if (res.ok) return res.text();
   } catch {
-    return "";
+    // fall through to retry
   }
+
+  // Retry with a different UA — helps bypass simple bot detection
+  try {
+    const ua2 = UAS[(UAS.indexOf(ua) + 1) % UAS.length];
+    const res = await fetch(url, cfInit({
+      signal: AbortSignal.timeout(12_000),
+      headers: browserHeaders(referer, ua2),
+    }, 150) as RequestInit);
+    if (res.ok) return res.text();
+  } catch {
+    // fall through
+  }
+
+  return "";
 }
 
 // ─── In-memory cache (warm lambda instances reuse these) ────────────────────
 const matchServerCache = new Map<string, { data: string[]; ts: number }>();
-let scheduleCache: { data: IStreamMatch[]; ts: number } | null = null;
 const SERVER_TTL = 50_000;    // 50 s — URLs are stable within a match
-const SCHEDULE_TTL = 150_000; // 2.5 min — schedule changes slowly
 
 // ─── Input safety ────────────────────────────────────────────────────────────
-// Slug must look like "team-a-vs-team-b-1234567" — letters, hyphens, digits only
 const SAFE_SLUG_RE = /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/;
 
 export type IStreamMatch = {
@@ -63,14 +84,30 @@ export type IStreamMatch = {
   away: string;
 };
 
+// ─── Public cached entry-points ──────────────────────────────────────────────
+
+/**
+ * Cached schedule — OpenNext backs this with CF Cache API so all Workers share it.
+ */
+export const getCachedIStreamSchedule = cache(
+  async (): Promise<IStreamMatch[]> => scrapeIStreamSchedule(),
+  ["istream-schedule-v2"],
+  { revalidate: 150 }, // 2.5 min
+);
+
+/**
+ * Cached match servers — keyed by slug so each match has its own entry.
+ */
+export const getCachedMatchServers = cache(
+  async (slug: string): Promise<string[]> => scrapeMatchServers(slug),
+  ["istream-servers-v2"],
+  { revalidate: 50 },
+);
+
 // ─── Schedule scraper ────────────────────────────────────────────────────────
 export async function scrapeIStreamSchedule(): Promise<IStreamMatch[]> {
-  if (scheduleCache && Date.now() - scheduleCache.ts < SCHEDULE_TTL) {
-    return scheduleCache.data;
-  }
-
   const html = await fetchHtml(`${SITE}/schedule/soccer`);
-  if (!html) return scheduleCache?.data ?? [];
+  if (!html) return [];
 
   const seen = new Set<string>();
   const matches: IStreamMatch[] = [];
@@ -93,7 +130,6 @@ export async function scrapeIStreamSchedule(): Promise<IStreamMatch[]> {
     matches.push({ slug, home, away });
   }
 
-  scheduleCache = { data: matches, ts: Date.now() };
   return matches;
 }
 
@@ -114,13 +150,13 @@ export async function scrapeMatchServers(slug: string): Promise<string[]> {
   const addUrl = (raw: string) => {
     const url = raw.trim().replace(/['"\\]/g, "");
     if (!url.startsWith("http")) return;
-    if (url.includes("istreameast.is")) return; // skip self-referential URLs
+    if (url.includes("istreameast.is")) return;
     if (seen.has(url)) return;
     seen.add(url);
     servers.push(url);
   };
 
-  // Strategy 1 — all <iframe> src attributes, regardless of attribute order
+  // Strategy 1 — all <iframe> src attributes
   for (const [tag] of html.matchAll(/<iframe\b[^>]*>/gi)) {
     const src = tag.match(/\bsrc=["']([^"']+)["']/i)?.[1];
     if (src) addUrl(src);
@@ -148,7 +184,7 @@ export async function scrapeMatchServers(slug: string): Promise<string[]> {
   return servers;
 }
 
-// ─── Team-name fuzzy match (mirrors streamedSu logic) ────────────────────────
+// ─── Team-name fuzzy match ────────────────────────────────────────────────────
 function normWords(s: string): Set<string> {
   return new Set(
     s.toLowerCase()

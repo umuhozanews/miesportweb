@@ -1,4 +1,4 @@
-import { scrapeMatchServers, scrapeIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
+import { getCachedMatchServers, getCachedIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
 import { scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
@@ -51,43 +51,43 @@ export async function GET(request: Request) {
   if (slug.startsWith("stv-")) {
     const parsed = parseStvSlug(slug);
     if (parsed) {
-      const [scheduleResult, streamedResult] = await Promise.allSettled([
-        scrapeIStreamSchedule(),
+      // Wave 1: fetch all three sources in parallel — all served from cache on repeat calls
+      const [scheduleResult, streamedResult, stvScrapeResult] = await Promise.allSettled([
+        getCachedIStreamSchedule(),
         getStreamedFootballMatches(),
+        parsed.stvPageSlug ? scrapeSoccerTvHdStream(parsed.stvPageSlug) : Promise.resolve(null),
       ]);
 
-      if (scheduleResult.status === "fulfilled") {
-        const iMatch = findIStreamMatch(parsed.home, parsed.away, scheduleResult.value);
-        if (iMatch) {
-          const embeds = await scrapeMatchServers(iMatch.slug);
-          embeds.forEach(add);
+      // Resolve match objects synchronously from wave-1 results
+      const iMatch = scheduleResult.status === "fulfilled"
+        ? findIStreamMatch(parsed.home, parsed.away, scheduleResult.value)
+        : null;
+      const suMatch = streamedResult.status === "fulfilled"
+        ? findStreamedMatch(parsed.home, parsed.away, streamedResult.value)
+        : null;
+
+      // Wave 2: fetch embeds in parallel — match server results are cached per slug
+      const [iEmbeds, suEmbeds] = await Promise.allSettled([
+        iMatch ? getCachedMatchServers(iMatch.slug) : Promise.resolve([]),
+        suMatch ? getStreamedEmbeds(suMatch) : Promise.resolve([]),
+      ]);
+
+      // Add in priority order — soccertvhd.com first (primary source, works on CF Workers)
+      if (parsed.stvPageSlug && stvScrapeResult.status === "fulfilled" && stvScrapeResult.value) {
+        for (const s of stvScrapeResult.value.streams) {
+          if (s.type === "embed") add(s.url);
+          else if (s.type === "hls" || s.type === "dash") add(getProxiedHlsUrl(s.url));
         }
       }
-
-      if (streamedResult.status === "fulfilled") {
-        const match = findStreamedMatch(parsed.home, parsed.away, streamedResult.value);
-        if (match) {
-          const embeds = await getStreamedEmbeds(match);
-          embeds.forEach(add);
-        }
-      }
-
-      // Fallback: scrape soccertvhd.com directly (works on CF Workers + local dev)
-      if (parsed.stvPageSlug) {
-        try {
-          const stvStream = await scrapeSoccerTvHdStream(parsed.stvPageSlug);
-          for (const s of stvStream.streams) {
-            if (s.type === "embed") add(s.url);
-            else if (s.type === "hls" || s.type === "dash") add(getProxiedHlsUrl(s.url));
-          }
-        } catch { /* IP-blocked on Vercel — fall through to raw page URL */ }
-        add(`https://www.soccertvhd.com/${parsed.stvPageSlug}/`);
-      }
+      if (iEmbeds.status === "fulfilled") iEmbeds.value.forEach(add);
+      if (suEmbeds.status === "fulfilled") suEmbeds.value.forEach(add);
+      // Raw page URL as final fallback — browser IP is not blocked
+      if (parsed.stvPageSlug) add(`https://www.soccertvhd.com/${parsed.stvPageSlug}/`);
     }
   } else {
     const parsed = parseIStreamSlug(slug);
     const [iStreamResult, streamedResult] = await Promise.allSettled([
-      scrapeMatchServers(slug),
+      getCachedMatchServers(slug),
       getStreamedFootballMatches(),
     ]);
 
@@ -104,5 +104,9 @@ export async function GET(request: Request) {
     }
   }
 
-  return Response.json({ servers });
+  return Response.json({ servers }, {
+    headers: {
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30",
+    },
+  });
 }

@@ -1,3 +1,5 @@
+import { unstable_cache as cache } from "next/cache";
+
 const HOME_URL = "https://www.soccertvhd.com/";
 const SITE_ORIGIN = "https://www.soccertvhd.com";
 const WIDGET_ID_PATTERN =
@@ -6,6 +8,27 @@ const MEDIA_URL_PATTERN =
   /https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mpd|mp4)(?:\?[^\s"'<>\\]*)?/gi;
 const EMBED_PATTERN =
   /<(?:iframe|source|video-js|video|embed)\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;
+
+// Realistic browser UAs — rotate every 3 minutes so each cache window looks different
+const UA_POOL = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+];
+
+function pickUA(): string {
+  return UA_POOL[Math.floor(Date.now() / 180_000) % UA_POOL.length];
+}
+
+// CF Workers fetch extension (silently ignored in Node.js)
+type CFRequestInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
+
+function cfInit(base: RequestInit, ttl: number): CFRequestInit {
+  return { ...base, cf: { cacheTtl: ttl, cacheEverything: true } };
+}
 
 type EventDateTime = {
   type: "datetime";
@@ -156,13 +179,26 @@ export type SoccerTvHdStreamResult = {
   };
 };
 
-// Cached fallback — avoids fetching soccertvhd.com homepage (IP-blocked on some hosts)
+// Stable fallback — the homepage is IP-blocked on CF Workers but the Elfsight API works fine
 const FALLBACK_WIDGET_ID = "feba0ba4-3d63-4db8-8a0a-5e37b58b3fcc";
+
+// ─── Public cached entry-points ───────────────────────────────────────────────
+
+/**
+ * Cached version of scrapeSoccerTvHdHomeMatches.
+ * OpenNext backs this with Cloudflare Cache API so all Worker instances share it.
+ */
+export const getCachedStvHomeMatches = cache(
+  async (): Promise<SoccerTvHdScrapeResult> => scrapeSoccerTvHdHomeMatches(),
+  ["stv-home-v2"],
+  { revalidate: 300 }, // 5 min
+);
 
 export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
   let widgetId: string;
   try {
-    widgetId = await getHomepageWidgetId();
+    // Short timeout — on CF Workers the homepage is IP-blocked so we fail fast
+    widgetId = await getHomepageWidgetId(2_000);
   } catch {
     widgetId = FALLBACK_WIDGET_ID;
   }
@@ -176,13 +212,13 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
   }
 
   const now = new Date();
-  const limit = settings.numberOfEventsInList ?? 10;
+  // Ignore the widget's own display limit — show all events up to 60 days out
   const matches = settings.events
     .map(normalizeEvent)
     .filter((event) => event.raw.visible !== false)
-    .filter((event) => settings.showPastEvents || event.endIso > now.toISOString())
+    .filter((event) => event.endIso > now.toISOString())
     .sort((a, b) => a.startIso.localeCompare(b.startIso))
-    .slice(0, limit);
+    .slice(0, 60); // reasonable cap to keep responses light
 
   return {
     sourceUrl: HOME_URL,
@@ -216,7 +252,7 @@ export async function scrapeSoccerTvHdStream(
   const cached = streamCache.get(sourceUrl);
   if (cached && Date.now() - cached.ts < STREAM_TTL) return cached.data;
 
-  const html = await fetchText(sourceUrl);
+  const html = await fetchText(sourceUrl, 10_000);
   const htmlStreams = extractMediaResources(html, sourceUrl);
   const playlistStreams = await Promise.all(
     htmlStreams
@@ -238,7 +274,7 @@ export async function scrapeSoccerTvHdStream(
       null,
     requestHeaders: {
       referer: sourceUrl,
-      userAgent: "Mozilla/5.0 soccer-scrapper",
+      userAgent: pickUA(),
     },
   };
 
@@ -246,8 +282,8 @@ export async function scrapeSoccerTvHdStream(
   return result;
 }
 
-async function getHomepageWidgetId() {
-  const html = await fetchText(HOME_URL);
+async function getHomepageWidgetId(timeoutMs = 4_000): Promise<string> {
+  const html = await fetchText(HOME_URL, timeoutMs);
   const widgetId = html.match(WIDGET_ID_PATTERN)?.[1];
 
   if (!widgetId) {
@@ -264,16 +300,41 @@ function getBootUrl(widgetId: string) {
   return url.toString();
 }
 
-async function fetchText(url: string) {
-  const response = await fetch(url, {
+async function fetchText(url: string, timeoutMs = 8_000): Promise<string> {
+  const ua = pickUA();
+  const init = cfInit({
     cache: "no-store",
-    signal: AbortSignal.timeout(6_000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.9",
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "accept-encoding": "gzip, deflate, br",
+      "user-agent": ua,
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      "cache-control": "max-age=0",
     },
-  });
+  }, 60); // cache page fetches for 1 min at CF edge
+
+  let response: Response;
+  try {
+    response = await fetch(url, init as RequestInit);
+  } catch (err) {
+    // Retry once with a different UA
+    const init2 = cfInit({
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        accept: "text/html,*/*",
+        "user-agent": UA_POOL[(UA_POOL.indexOf(ua) + 1) % UA_POOL.length],
+      },
+    }, 60);
+    response = await fetch(url, init2 as RequestInit);
+    if (!response) throw err;
+  }
 
   if (!response.ok) {
     throw new Error(`Fetch failed for ${url}: ${response.status}`);
@@ -283,16 +344,19 @@ async function fetchText(url: string) {
 }
 
 async function fetchStreamText(url: string, referer: string) {
-  const response = await fetch(url, {
+  const response = await fetch(url, cfInit({
     cache: "no-store",
-    signal: AbortSignal.timeout(4_000),
+    signal: AbortSignal.timeout(8_000),
     headers: {
-      accept:
-        "application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,text/plain,*/*",
+      accept: "application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,text/plain,*/*",
       referer,
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      origin: SITE_ORIGIN,
+      "user-agent": pickUA(),
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
     },
-  });
+  }, 120) as RequestInit); // cache playlist fetches for 2 min
 
   if (!response.ok) {
     return null;
@@ -304,15 +368,22 @@ async function fetchStreamText(url: string, referer: string) {
   };
 }
 
-async function fetchJson<T>(url: string) {
-  const response = await fetch(url, {
-    cache: "no-store",
+async function fetchJson<T>(url: string): Promise<T> {
+  // Cache the Elfsight boot API at the CF edge so all Workers share it
+  const init = cfInit({
+    signal: AbortSignal.timeout(12_000),
     headers: {
-      accept: "application/json",
+      accept: "application/json, text/plain, */*",
       referer: HOME_URL,
-      "user-agent": "Mozilla/5.0 soccer-scrapper",
+      origin: SITE_ORIGIN,
+      "user-agent": pickUA(),
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
     },
-  });
+  }, 300); // 5-minute shared CF edge cache
+
+  const response = await fetch(url, init as RequestInit);
 
   if (!response.ok) {
     throw new Error(`Fetch failed for ${url}: ${response.status}`);
@@ -349,9 +420,30 @@ function normalizeEvent(event: ElfsightEvent): ScrapedMatch {
   };
 }
 
-function zonedDateTimeToDate(value: EventDateTime, timeZone: string) {
-  const offset = timeZone === "Asia/Karachi" ? "+05:00" : "Z";
-  return new Date(`${value.date}T${value.time}:00${offset}`);
+function zonedDateTimeToDate({ date, time }: EventDateTime, timeZone: string): Date {
+  // Convert a local date/time in an arbitrary IANA timezone to a UTC Date.
+  // Works by computing what UTC timestamp maps to the given local time.
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const approxUtc = Date.UTC(y, mo - 1, d, h, mi);
+
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric", month: "numeric", day: "numeric",
+      hour: "numeric", minute: "numeric", hour12: false,
+    });
+    const parts = fmt.formatToParts(new Date(approxUtc)).reduce(
+      (acc, p) => { if (p.type !== "literal") acc[p.type] = Number(p.value); return acc; },
+      {} as Record<string, number>,
+    );
+    const tzH = parts.hour === 24 ? 0 : parts.hour;
+    const tzUtc = Date.UTC(parts.year, parts.month - 1, parts.day, tzH, parts.minute);
+    return new Date(approxUtc - (tzUtc - approxUtc));
+  } catch {
+    // Fallback: assume UTC
+    return new Date(`${date}T${time}:00Z`);
+  }
 }
 
 function formatLocalDateTime(date: Date) {
@@ -437,32 +529,17 @@ async function discoverPlaylistChildren(
 function dedupeStreams(streams: StreamResource[]) {
   const seen = new Set<string>();
   return streams.filter((stream) => {
-    if (seen.has(stream.url)) {
-      return false;
-    }
-
+    if (seen.has(stream.url)) return false;
     seen.add(stream.url);
     return true;
   });
 }
 
 function getStreamType(url: string): StreamResource["type"] {
-  if (/\.m3u8(?:\?|$)/i.test(url)) {
-    return "hls";
-  }
-
-  if (/\.mpd(?:\?|$)/i.test(url)) {
-    return "dash";
-  }
-
-  if (/\.mp4(?:\?|$)/i.test(url)) {
-    return "mp4";
-  }
-
-  if (/^https?:\/\//i.test(url)) {
-    return "embed";
-  }
-
+  if (/\.m3u8(?:\?|$)/i.test(url)) return "hls";
+  if (/\.mpd(?:\?|$)/i.test(url)) return "dash";
+  if (/\.mp4(?:\?|$)/i.test(url)) return "mp4";
+  if (/^https?:\/\//i.test(url)) return "embed";
   return "unknown";
 }
 

@@ -96,13 +96,17 @@ export type LsTable = {
 
 /* ─── Internal fetch helpers ─── */
 
+type CFRequestInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
+
 async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stages: LsStage[] } | null> {
   const d = date.replace(/-/g, "");
   try {
     const res = await fetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
       headers: HEADERS,
       cache: "no-store",
-    });
+      // CF Workers: cache livescore data at the edge for 30 seconds
+      cf: { cacheTtl: 30, cacheEverything: true },
+    } as CFRequestInit as RequestInit);
     if (!res.ok) return null;
     return res.json() as Promise<{ Stages: LsStage[] }>;
   } catch {
@@ -115,7 +119,8 @@ async function lsFetchRaw<T>(path: string): Promise<T | null> {
     const res = await fetch(`${BASE}${path}`, {
       headers: HEADERS,
       cache: "no-store",
-    });
+      cf: { cacheTtl: 120, cacheEverything: true },
+    } as CFRequestInit as RequestInit);
     if (!res.ok) return null;
     return res.json() as T;
   } catch {
