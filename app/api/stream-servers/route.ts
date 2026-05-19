@@ -72,15 +72,20 @@ export async function GET(request: Request) {
         suMatch ? getStreamedEmbeds(suMatch) : Promise.resolve([]),
       ]);
 
-      // Add in priority order — soccertvhd.com first (primary source, works on CF Workers)
+      // Collect HLS proxy URLs separately — CacheFly blocks CF Workers IPs so they
+      // often return 403. Add direct embeds first so the default server always works.
+      const hlsProxyUrls: string[] = [];
       if (parsed.stvPageSlug && stvScrapeResult.status === "fulfilled" && stvScrapeResult.value) {
         for (const s of stvScrapeResult.value.streams) {
           if (s.type === "embed") add(s.url);
-          else if (s.type === "hls" || s.type === "dash") add(getProxiedHlsUrl(s.url));
+          else if (s.type === "hls" || s.type === "dash") hlsProxyUrls.push(getProxiedHlsUrl(s.url));
         }
       }
+      // Direct embeds from iStreamEast + streamed.su come before HLS proxies
       if (iEmbeds.status === "fulfilled") iEmbeds.value.forEach(add);
       if (suEmbeds.status === "fulfilled") suEmbeds.value.forEach(add);
+      // HLS proxy streams as fallback (may fail if CDN blocks CF Workers IPs)
+      hlsProxyUrls.forEach(add);
       // Raw page URL as final fallback — browser IP is not blocked
       if (parsed.stvPageSlug) add(`https://www.soccertvhd.com/${parsed.stvPageSlug}/`);
     }
