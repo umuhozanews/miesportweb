@@ -316,6 +316,41 @@ export const getLsCompStandings = cache(
   { revalidate: 300 },
 );
 
+/* ─── Top scorers / stats ─── */
+
+export type LsTopScorer = {
+  Rnk: number;
+  Pid: string;
+  Pnm: string;
+  Img?: string;
+  Gls: number;
+  Ast?: number;
+  Pld?: number;
+  Ycd?: number;  // Yellow cards
+  Rcd?: number;  // Red cards
+  Tid: string;
+  Tnm: string;
+  TImg?: string;
+};
+
+export const getLsCompTopScorers = cache(
+  async (stageId: string): Promise<LsTopScorer[]> => {
+    // Try known livescore.com endpoint variants
+    for (const path of [
+      `/v1/api/app/comp/top-score/${stageId}/0/${EAT_OFFSET}`,
+      `/v1/api/app/comp/scorer/${stageId}/0/${EAT_OFFSET}`,
+      `/v1/api/app/comp/stat/${stageId}/0/${EAT_OFFSET}`,
+    ]) {
+      const d = await lsFetchRaw<{ TopScorer?: LsTopScorer[]; Players?: LsTopScorer[] }>(path);
+      const rows = d?.TopScorer ?? d?.Players ?? [];
+      if (rows.length > 0) return rows;
+    }
+    return [];
+  },
+  ["ls-comp-top-scorers"],
+  { revalidate: 3600 },
+);
+
 /* ─── Search ─── */
 
 export type LsSearchTeam = {

@@ -4,6 +4,11 @@ import { TeamImg, CompImg } from "./TeamImg";
 
 const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#5a7090", label: "#3a5070", panel: "#0f1a2e" };
 
+// Pinned competitions — CompId/Sid for the 2025-26 season
+const FEATURED_LEAGUES = [
+  { name: "Premier League", country: "England", compId: "65", sid: "21997", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+];
+
 export async function Sidebar() {
   const today = new Date().toISOString().split("T")[0];
   const stages = await getLsStages(today, "soccer");
@@ -24,6 +29,29 @@ export async function Sidebar() {
           />
         </div>
       </form>
+
+      {/* Featured Leagues */}
+      <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <div style={{ padding: "10px 13px 8px" }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
+            Featured Leagues
+          </span>
+        </div>
+        {FEATURED_LEAGUES.map((lg) => (
+          <Link
+            key={lg.sid}
+            href={`/livescore/tournament/${lg.compId}/${lg.sid}`}
+            className="sf-sidebar-item"
+            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
+          >
+            <span style={{ fontSize: 18 }}>{lg.flag}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{lg.name}</div>
+              <div style={{ fontSize: 11, color: C.muted }}>{lg.country}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
 
       {/* Today's Competitions */}
       {stages.length > 0 && (
@@ -81,27 +109,6 @@ export async function Sidebar() {
         );
       })()}
 
-      {/* Rwanda PL quick link */}
-      <Link
-        href="/rwanda"
-        style={{
-          textDecoration: "none",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 13px",
-          background: "rgba(105,147,205,0.08)",
-          border: `1px solid ${C.border}`,
-          borderRadius: 10,
-        }}
-      >
-        <span style={{ fontSize: 18 }}>🇷🇼</span>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#6993cd" }}>Rwanda Premier League</div>
-          <div style={{ fontSize: 11, color: C.muted }}>Live standings &amp; results</div>
-        </div>
-        <span style={{ marginLeft: "auto", color: C.muted, fontSize: 16 }}>›</span>
-      </Link>
 
     </div>
   );

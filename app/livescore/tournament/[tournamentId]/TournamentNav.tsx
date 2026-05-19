@@ -9,6 +9,7 @@ export function TournamentNav({ tournamentId, seasonId }: { tournamentId: string
     { href: base, label: "Fixtures" },
     { href: `${base}/results`, label: "Results" },
     { href: `${base}/standings`, label: "Standings" },
+    { href: `${base}/stats`, label: "Stats" },
   ];
   return (
     <div style={{ display: "flex", padding: "0 1rem" }}>
