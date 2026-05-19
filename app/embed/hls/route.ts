@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 export function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const streamUrl = searchParams.get("url") ?? "";

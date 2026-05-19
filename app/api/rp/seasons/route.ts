@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 const BASE = "https://api.sofascore.com/api/v1";
 const UID = 10608;
 

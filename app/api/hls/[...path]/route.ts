@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 // ── Stream source registry ────────────────────────────────────────────────
 const STREAM_SOURCES = {
   bustrr: "bustrr.cachefly.net",

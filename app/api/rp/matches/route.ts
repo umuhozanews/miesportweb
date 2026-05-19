@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { type NextRequest } from "next/server";
 
 const BASE = "https://api.sofascore.com/api/v1";

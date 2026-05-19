@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
 
 function makeCorsHeaders(requestOrigin: string | null) {
