@@ -129,6 +129,20 @@ function dateStr(d: Date): string {
   return d.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+// Range scoreboard: ESPN accepts dates=YYYYMMDD-YYYYMMDD → single request instead of N daily requests
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchESPNRange(league: string, start: Date, end: Date): Promise<EspnEvent[]> {
+  const url = `${ESPN_V1}/${league}/scoreboard?dates=${dateStr(start)}-${dateStr(end)}&limit=100`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = await espnFetch<any>(url);
+  if (!d?.events) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (d.events as any[]).flatMap((ev) => {
+    const parsed = parseEvent(ev);
+    return parsed ? [parsed] : [];
+  });
+}
+
 // ── Standings ─────────────────────────────────────────────────────────────────
 
 export const getESPNWCStandings = cache(
@@ -144,7 +158,7 @@ export const getESPNWCStandings = cache(
     }));
   },
   ["espn-wc-standings"],
-  { revalidate: 60 },
+  { revalidate: 180 },
 );
 
 export const getESPNPLStandings = cache(
@@ -156,96 +170,125 @@ export const getESPNPLStandings = cache(
     return (d.children[0].standings?.entries ?? []).map((e: any) => parseEntry(e));
   },
   ["espn-pl-standings"],
-  { revalidate: 120 },
+  { revalidate: 300 },
 );
 
 // ── Events (scoreboard) ───────────────────────────────────────────────────────
 
-async function fetchESPNScoreboard(league: string, dateYMD: string): Promise<EspnEvent[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = await espnFetch<any>(`${ESPN_V1}/${league}/scoreboard?dates=${dateYMD}&limit=20`);
-  if (!d?.events) return [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (d.events as any[]).flatMap((ev) => {
-    const parsed = parseEvent(ev);
-    return parsed ? [parsed] : [];
-  });
-}
-
 export const getESPNPLFixtures = cache(
   async (): Promise<EspnEvent[]> => {
-    const dates = Array.from({ length: 10 }, (_, i) => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() + i);
-      return d;
-    });
-    const all = await Promise.all(dates.map((d) => fetchESPNScoreboard("eng.1", dateStr(d))));
+    const start = new Date();
+    const end = new Date();
+    end.setUTCDate(end.getUTCDate() + 13); // 14-day window ahead
+    const events = await fetchESPNRange("eng.1", start, end);
     const seen = new Set<string>();
-    return all.flat().filter((e) => {
+    return events.filter((e) => {
       if (seen.has(e.id) || e.status === "finished") return false;
       seen.add(e.id);
       return true;
     }).sort((a, b) => a.startTimestamp - b.startTimestamp);
   },
   ["espn-pl-fixtures"],
-  { revalidate: 120 },
+  { revalidate: 300 },
 );
 
 export const getESPNPLResults = cache(
   async (): Promise<EspnEvent[]> => {
-    const dates = Array.from({ length: 14 }, (_, i) => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - i);
-      return d;
-    });
-    const all = await Promise.all(dates.map((d) => fetchESPNScoreboard("eng.1", dateStr(d))));
+    const end = new Date();
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() - 20); // last 3 weeks
+    const events = await fetchESPNRange("eng.1", start, end);
     const seen = new Set<string>();
-    return all.flat().filter((e) => {
+    return events.filter((e) => {
       if (seen.has(e.id) || e.status !== "finished") return false;
       seen.add(e.id);
       return true;
     }).sort((a, b) => b.startTimestamp - a.startTimestamp);
   },
   ["espn-pl-results"],
-  { revalidate: 120 },
+  { revalidate: 300 },
 );
 
 export const getESPNWCFixtures = cache(
   async (): Promise<EspnEvent[]> => {
-    const dates = Array.from({ length: 14 }, (_, i) => {
-      const d = new Date("2026-06-11");
-      d.setUTCDate(d.getUTCDate() + i);
-      return d;
-    });
-    const all = await Promise.all(dates.map((d) => fetchESPNScoreboard("fifa.world", dateStr(d))));
+    // Group stage: Jun 11 – Jul 2; Knockout: Jul 3 – Jul 19
+    const start = new Date("2026-06-11");
+    const end = new Date("2026-07-19");
+    const events = await fetchESPNRange("fifa.world", start, end);
     const seen = new Set<string>();
-    return all.flat().filter((e) => {
+    return events.filter((e) => {
       if (seen.has(e.id)) return false;
       seen.add(e.id);
       return true;
     }).sort((a, b) => a.startTimestamp - b.startTimestamp);
   },
   ["espn-wc-fixtures"],
-  { revalidate: 120 },
+  { revalidate: 600 },
 );
 
 export const getESPNWCResults = cache(
   async (): Promise<EspnEvent[]> => {
-    const dates = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - i);
-      return d;
-    });
-    const all = await Promise.all(dates.map((d) => fetchESPNScoreboard("fifa.world", dateStr(d))));
+    const end = new Date();
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() - 14); // last 2 weeks
+    const events = await fetchESPNRange("fifa.world", start, end);
     const seen = new Set<string>();
-    return all.flat().filter((e) => {
+    return events.filter((e) => {
       if (seen.has(e.id) || e.status !== "finished") return false;
       seen.add(e.id);
       return true;
     }).sort((a, b) => b.startTimestamp - a.startTimestamp);
   },
   ["espn-wc-results"],
-  { revalidate: 120 },
+  { revalidate: 300 },
+);
+
+// ── Leaders (top scorers / assists) ──────────────────────────────────────────
+
+export type EspnLeaderEntry = {
+  rank: number;
+  value: number;
+  athlete: { id: string; name: string; headshot?: string };
+  team: EspnTeam;
+};
+
+export type EspnLeaders = {
+  goals: EspnLeaderEntry[];
+  assists: EspnLeaderEntry[];
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseLeaderCategory(cat: any): EspnLeaderEntry[] {
+  if (!cat?.leaders) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (cat.leaders as any[]).map((l, i) => ({
+    rank: i + 1,
+    value: l.value ?? 0,
+    athlete: {
+      id: l.athlete?.id ?? "",
+      name: l.athlete?.displayName ?? l.athlete?.shortName ?? "",
+      headshot: l.athlete?.headshot?.href,
+    },
+    team: parseTeam(l.team ?? {}),
+  }));
+}
+
+export const getESPNLeaders = cache(
+  async (league: string): Promise<EspnLeaders> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await espnFetch<any>(`${ESPN_V1}/${league}/leaders`);
+    const cats: EspnLeaderEntry[][] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list: any[] = d?.leaders ?? [];
+    const goalsRaw = list.find((c: { name: string }) => c.name === "goals" || c.name === "goalsScoredAll");
+    const assistsRaw = list.find((c: { name: string }) => c.name === "assists" || c.name === "assistsAll");
+    return {
+      goals: parseLeaderCategory(goalsRaw),
+      assists: parseLeaderCategory(assistsRaw ?? list[1]),
+    };
+  },
+  ["espn-leaders"],
+  { revalidate: 3600 },
 );
 
 // ── Time helpers ──────────────────────────────────────────────────────────────

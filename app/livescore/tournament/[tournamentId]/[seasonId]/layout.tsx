@@ -1,13 +1,12 @@
 import { getLsStageMeta } from "@/lib/livescoreCom";
-import { getTournamentSeasons, tournamentImg } from "@/lib/sofascore";
 import { TournamentNav } from "../TournamentNav";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }>; children: React.ReactNode };
 
-// Sofascore unique-tournament IDs we handle natively
-const SF_UIDS: Record<string, number> = {
-  "17": 17, // Premier League
-  "16": 16, // World Cup
+// Static meta for ESPN-powered tournaments (no API call needed)
+const STATIC_META: Record<string, { name: string; country: string; badge: string }> = {
+  "17": { name: "Premier League", country: "England", badge: "https://api.sofascore.com/api/v1/unique-tournament/17/image" },
+  "16": { name: "FIFA World Cup 2026", country: "International", badge: "https://api.sofascore.com/api/v1/unique-tournament/16/image" },
 };
 
 export default async function TournamentSeasonLayout({ params, children }: Props) {
@@ -17,13 +16,11 @@ export default async function TournamentSeasonLayout({ params, children }: Props
   let country = "";
   let badgeUrl = "";
 
-  const sfUid = SF_UIDS[tournamentId];
-  if (sfUid) {
-    const seasons = await getTournamentSeasons(sfUid);
-    const season = seasons.find((s) => String(s.id) === seasonId) ?? seasons[0];
-    name = season?.name ?? "Competition";
-    country = sfUid === 17 ? "England" : sfUid === 16 ? "International" : "";
-    badgeUrl = tournamentImg(sfUid);
+  const staticMeta = STATIC_META[tournamentId];
+  if (staticMeta) {
+    name = staticMeta.name;
+    country = staticMeta.country;
+    badgeUrl = staticMeta.badge; // loaded by browser, not CF Worker
   } else {
     const meta = await getLsStageMeta(seasonId);
     name = meta.name;
