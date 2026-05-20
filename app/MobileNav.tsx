@@ -15,11 +15,6 @@ const NAV = [
     ),
   },
   {
-    href: "/rwanda",
-    label: "Rwanda",
-    icon: <span style={{ fontSize: 20, lineHeight: 1 }}>🇷🇼</span>,
-  },
-  {
     href: "/worldcup",
     label: "World Cup",
     icon: <span style={{ fontSize: 20, lineHeight: 1 }}>🏆</span>,

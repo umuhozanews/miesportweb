@@ -12,6 +12,7 @@
 
 import fs from "fs";
 import path from "path";
+import vm from "vm";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -228,13 +229,48 @@ const inlineCacheEntries = manifestPaths.flatMap((name) => {
     return [`${JSON.stringify("/" + name)}: ${JSON.stringify(data)}`];
   } catch { return []; }
 });
+// Inline page_client-reference-manifest.js files by executing them with vm.runInNewContext.
+// These are .js files (not JSON), so they can't go through JSON.parse.
+// Next.js calls evalManifest() → vm.runInNewContext → returns contextObj with __RSC_MANIFEST.
+// We pre-execute them at build time and cache the result so CF Workers never needs fs.readFileSync.
+function* walkManifestFiles(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) yield* walkManifestFiles(full);
+    else if (entry.name.endsWith("_client-reference-manifest.js")) yield full;
+  }
+}
+const pageManifestEntries = [];
+const appServerDir = path.join(nextDistDir, "server", "app");
+for (const mfPath of walkManifestFiles(appServerDir)) {
+  let content;
+  try { content = fs.readFileSync(mfPath, "utf8"); } catch { continue; }
+  const ctx = { process: { env: {} } };
+  try {
+    vm.runInNewContext(content, ctx);
+  } catch (e) {
+    console.warn("WARNING: eval failed for", path.basename(mfPath), "->", e.message);
+    continue;
+  }
+  if (!ctx.__RSC_MANIFEST) {
+    console.warn("WARNING: no __RSC_MANIFEST after eval of", path.basename(mfPath));
+    continue;
+  }
+  const relKey = "/" + path.relative(nextDistDir, mfPath).replace(/\\/g, "/");
+  pageManifestEntries.push(
+    `${JSON.stringify(relKey)}: ${JSON.stringify({ __RSC_MANIFEST: ctx.__RSC_MANIFEST })}`
+  );
+}
+console.log(`Inlined ${inlineCacheEntries.length} JSON manifests + ${pageManifestEntries.length} page RSC manifests.`);
+
 const buildId = fs.existsSync(path.join(nextDistDir, "BUILD_ID"))
   ? fs.readFileSync(path.join(nextDistDir, "BUILD_ID"), "utf8").trim()
   : "";
 // Inject the cache lookup INSIDE the loadManifest function body (before _fs.readFileSync).
 // We can't override exports.loadManifest because _export() creates a getter-only property.
 const inlineCacheDecl =
-  `var __CF_MANIFEST_INLINE_CACHE__ = {${inlineCacheEntries.join(",\n")}};\n` +
+  `var __CF_MANIFEST_INLINE_CACHE__ = {${[...inlineCacheEntries, ...pageManifestEntries].join(",\n")}};\n` +
   `var __CF_BUILD_ID__ = ${JSON.stringify(buildId)};\n`;
 // Injection site: right after the early-return for the cache hit
 const LM_INJECT_AFTER = `    if (cached) {\n        return cached;\n    }`;

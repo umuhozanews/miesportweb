@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   getLsStages,
   lsIsLive,
@@ -135,88 +134,102 @@ export default async function Home() {
   const upcomingCount = upcomingEventsWithStream.length;
   const stvCount = stvMatches.length;
 
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#0a0a0f", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
+  const totalLive = stvCount + count;
 
-      {/* ── NAV ── */}
-      <header style={{
-        background: "linear-gradient(180deg, #0d1428 0%, #08090f 100%)",
-        borderBottom: "1px solid rgba(0,102,255,0.18)",
-        padding: "0 1.25rem",
-        height: 58,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        boxShadow: "0 1px 0 rgba(0,102,255,0.12), 0 4px 28px rgba(0,0,0,0.7)",
-        flexShrink: 0,
-        gap: 12,
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        backdropFilter: "blur(18px)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <Image src="/mie-logo.png" alt="MIE Empire" width={36} height={36}
-            style={{ borderRadius: 8, display: "block" }} />
-          <div>
-            <div style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.5 }}>MIE Sport</div>
-            <div style={{ color: "#0066ff", fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Live Football</div>
+  return (
+    <>
+      {/* ── HERO ── */}
+      <section className="lp-hero">
+        <div className="lp-grid-bg" style={{ position: "absolute", inset: 0, opacity: 0.55 }} />
+        <div className="lp-hero-orb-tr" />
+        <div className="lp-hero-orb-bl" />
+        <div className="lp-hero-inner">
+          {totalLive > 0 && (
+            <div className="lp-hero-badge">
+              <span className="lp-live-dot" style={{ width: 8, height: 8 }} />
+              <span className="lp-hero-badge-text">{totalLive} match{totalLive > 1 ? "es" : ""} live right now</span>
+            </div>
+          )}
+          <h1 className="lp-hero-heading lp-font-display">
+            Every match.<br />
+            <span style={{ color: "var(--lp-primary)" }}>Live</span>{" "}
+            &amp;{" "}
+            <span style={{ color: "var(--lp-blue)" }}>free.</span>
+          </h1>
+          <p className="lp-hero-sub">
+            Real-time scores, free HD streams and full World Cup coverage — all in one fast, clean place.
+          </p>
+          <div className="lp-hero-ctas">
+            <Link href="/" className="lp-cta-primary">
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              Watch Live
+            </Link>
+            <Link href="/livescore" className="lp-cta-secondary">
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx={12} cy={12} r={2} /><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49" /></svg>
+              Open Livescore
+            </Link>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      </section>
+
+      {/* ── QUICK NAV ── */}
+      <div className="lp-quicknav">
+        <div className="lp-quicknav-grid">
+          <DestCard href="/livescore" accent="green"
+            icon={<svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><circle cx={12} cy={12} r={2} /><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" /></svg>}
+            label="LIVESCORE" title="Real-time scores"
+            desc="Every goal, card and substitution from every major league — updated live." />
+          <DestCard href="/" accent="blue"
+            icon={<svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><rect width={20} height={15} x={2} y={7} rx={2} /><polyline points="17 2 12 7 7 2" /></svg>}
+            label="WATCH" title="Free live streams"
+            desc="HD streams for top fixtures. Pick your match and tap play — no signup." />
+          <DestCard href="/worldcup" accent="green"
+            icon={<svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><line x1={12} x2={12} y1={17} y2={21} /><line x1={8} x2={16} y1={21} y2={21} /><path d="M7 4H4a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h3" /><path d="M17 4h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3" /><path d="M7 4a5 5 0 0 0 10 0H7Z" /></svg>}
+            label="WORLD CUP" title="Full tournament hub"
+            desc="Fixtures, group standings, knockouts and live streams in one place." />
+        </div>
+      </div>
+
+      {/* ── MATCHES ── */}
+      <div className="lp-matches-section">
+        <div className="lp-matches-heading">
+          <div>
+            <div className="lp-section-eyebrow">
+              {totalLive > 0
+                ? <><span className="lp-live-dot" style={{ width: 8, height: 8 }} /><span className="lp-section-eyebrow-text">LIVE NOW</span></>
+                : <span className="lp-section-eyebrow-text" style={{ color: "var(--lp-blue)" }}>TODAY</span>
+              }
+            </div>
+            <h2 className="lp-section-title lp-font-display">
+              {totalLive > 0 ? "Streaming matches" : upcomingCount > 0 ? "Upcoming streams" : "Matches"}
+            </h2>
+          </div>
           <Link href="/livescore" style={{
-            textDecoration: "none",
-            background: "rgba(0,102,255,0.1)",
-            border: "1px solid rgba(0,102,255,0.28)",
-            color: "#7ab4ff",
-            borderRadius: 8,
-            padding: "5px 13px",
-            fontSize: 12,
-            fontWeight: 700,
+            fontSize: 13, fontWeight: 700, color: "var(--lp-muted-fg)",
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 4,
             whiteSpace: "nowrap",
           }}>
-            📊 Scores
+            All scores →
           </Link>
-          {(stvCount > 0 || count > 0) && (
-            <span className="mc-sticky-pill">
-              <span className="dot-live-red" />
-              {stvCount + count} LIVE
-            </span>
-          )}
-          {upcomingCount > 0 && count === 0 && stvCount === 0 && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#7ab4ff", background: "rgba(0,102,255,0.1)", border: "1px solid rgba(0,102,255,0.22)", borderRadius: 6, padding: "3px 9px" }}>
-              {upcomingCount} UPCOMING
-            </span>
-          )}
         </div>
-      </header>
-
-      {/* ── MAIN ── */}
-      <main style={{ flex: 1, maxWidth: 780, width: "100%", margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
         {stvCount > 0 || count > 0 || upcomingCount > 0 ? (
           <section>
-            {/* Sticky bar */}
             {(stvCount > 0 || count > 0) && (
               <div className="mc-sticky-bar">
                 <span className="dot-live-red" />
                 <span className="mc-sticky-label">Streaming Now</span>
-                <span className="mc-sticky-pill">
-                  {stvCount + count} match{stvCount + count > 1 ? "es" : ""}
-                </span>
+                <span className="mc-sticky-pill">{totalLive} match{totalLive > 1 ? "es" : ""}</span>
               </div>
             )}
 
-            {/* STV PRIMARY section */}
             {stvCount > 0 && (
               <>
                 <div className="mc-section-hdr">
                   <span className="dot-live-red" />
                   <span className="mc-section-hdr-title">Live Now</span>
                   <div className="mc-section-hdr-line" />
-                  <span className="mc-section-hdr-count">
-                    {stvCount} match{stvCount > 1 ? "es" : ""}
-                  </span>
+                  <span className="mc-section-hdr-count">{stvCount} match{stvCount > 1 ? "es" : ""}</span>
                 </div>
                 <div className="mc-list">
                   {stvMatches.map(({ match, slug }) => (
@@ -226,16 +239,13 @@ export default async function Home() {
               </>
             )}
 
-            {/* Other live matches (iStreamEast / streamed.su) */}
             {count > 0 && (
               <>
                 <div className="mc-section-hdr" style={{ marginTop: stvCount > 0 ? 24 : 0 }}>
                   <span className="dot-live-red" />
                   <span className="mc-section-hdr-title">More Live</span>
                   <div className="mc-section-hdr-line" />
-                  <span className="mc-section-hdr-count">
-                    {count} match{count > 1 ? "es" : ""}
-                  </span>
+                  <span className="mc-section-hdr-count">{count} match{count > 1 ? "es" : ""}</span>
                 </div>
                 <div className="mc-list">
                   {liveEventsWithStream.map(({ event: e, watchSlug }) => (
@@ -245,16 +255,13 @@ export default async function Home() {
               </>
             )}
 
-            {/* Upcoming matches with stream links */}
             {upcomingCount > 0 && (
               <>
                 <div className="mc-section-hdr" style={{ marginTop: stvCount > 0 || count > 0 ? 24 : 0 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7ab4ff", flexShrink: 0 }} />
                   <span className="mc-section-hdr-title">Upcoming</span>
                   <div className="mc-section-hdr-line" />
-                  <span className="mc-section-hdr-count">
-                    {upcomingCount} match{upcomingCount > 1 ? "es" : ""}
-                  </span>
+                  <span className="mc-section-hdr-count">{upcomingCount} match{upcomingCount > 1 ? "es" : ""}</span>
                 </div>
                 <div className="mc-list">
                   {upcomingEventsWithStream.map(({ event: e, watchSlug }) => (
@@ -267,65 +274,45 @@ export default async function Home() {
         ) : (
           <div style={{
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            padding: "5rem 1rem", gap: 18, textAlign: "center",
+            padding: "4rem 1rem", gap: 18, textAlign: "center",
           }}>
             <div style={{
               width: 72, height: 72, borderRadius: "50%",
-              background: "rgba(0,102,255,0.08)",
-              border: "1px solid rgba(0,102,255,0.15)",
+              background: "oklch(0.62 0.21 260 / 8%)",
+              border: "1px solid oklch(0.62 0.21 260 / 15%)",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="rgba(0,102,255,0.4)" strokeWidth={1.5}>
-                <circle cx={12} cy={12} r={10} />
-                <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
+              <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="oklch(0.62 0.21 260 / 40%)" strokeWidth={1.5}>
+                <circle cx={12} cy={12} r={10} /><path strokeLinecap="round" d="M12 8v4m0 4h.01" />
               </svg>
             </div>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700, margin: 0 }}>
-              No live matches right now
-            </p>
-            <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, margin: 0 }}>
-              Check back when matches kick off — this page updates automatically.
-            </p>
-            <Link href="/livescore" style={{
-              marginTop: 4,
-              textDecoration: "none",
-              background: "linear-gradient(90deg, #0066ff, #00c6ff)",
-              color: "#fff",
-              borderRadius: 10,
-              padding: "10px 22px",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 1.2,
-              textTransform: "uppercase",
-              boxShadow: "0 4px 20px rgba(0,102,255,0.4)",
-            }}>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700, margin: 0 }}>No live matches right now</p>
+            <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, margin: 0 }}>Check back when matches kick off — this page updates automatically.</p>
+            <Link href="/livescore" className="lp-cta-primary" style={{ marginTop: 4 }}>
               View Today&apos;s Schedule →
             </Link>
           </div>
         )}
+      </div>
+    </>
+  );
+}
 
-      </main>
-
-      {/* ── FOOTER ── */}
-      <footer style={{
-        borderTop: "1px solid rgba(0,102,255,0.1)",
-        padding: "1rem 1.5rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 8,
-        background: "rgba(6,8,18,0.8)",
-      }}>
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.12)" }}>© {new Date().getFullYear()} MIE Empire</span>
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.12)" }}>
-          Special thanks to{" "}
-          <a href="https://www.atomiq.rw/" target="_blank" rel="noopener noreferrer"
-            style={{ color: "#f5a623", fontWeight: 700, textDecoration: "none" }}>ATOMIQ</a>
-        </span>
-      </footer>
-
-    </div>
+function DestCard({ href, icon, label, title, desc, accent }: {
+  href: string; icon: React.ReactNode; label: string;
+  title: string; desc: string; accent: "green" | "blue";
+}) {
+  const accentColor = accent === "green" ? "var(--lp-primary)" : "var(--lp-blue)";
+  return (
+    <Link href={href} className={`lp-dest-card lp-dest-card-${accent}`}>
+      <div style={{ color: accentColor }}>{icon}</div>
+      <div style={{ marginTop: 20, fontSize: 10, fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: accentColor }}>{label}</div>
+      <h3 style={{ marginTop: 6, fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff" }}>{title}</h3>
+      <p style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6, color: "var(--lp-muted-fg)" }}>{desc}</p>
+      <div style={{ marginTop: 20, fontSize: 13, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+        Open <span style={{ transition: "transform 0.2s" }}>→</span>
+      </div>
+    </Link>
   );
 }
 

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { StreamPlayer } from "./StreamPlayer";
 import { getCachedMatchServers, getCachedIStreamSchedule, findIStreamMatch } from "@/lib/iStreamEast";
 import { getStreamedFootballMatches, findStreamedMatch, getStreamedEmbeds } from "@/lib/streamedSu";
@@ -208,140 +207,67 @@ export default async function WatchPage({ params }: PageProps) {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
+    <main style={{
+      maxWidth: 1000,
+      width: "100%",
+      margin: "0 auto",
+      padding: "1.5rem 1rem 3rem",
       display: "flex",
       flexDirection: "column",
-      background: "#0a0a0f",
-      color: "#fff",
-      fontFamily: "'Inter', sans-serif",
+      gap: 16,
     }}>
 
-      {/* ── NAV ── */}
-      <header style={{
-        background: "linear-gradient(180deg, #0d1428 0%, #08090f 100%)",
-        borderBottom: "1px solid rgba(0,102,255,0.18)",
-        padding: "0 1.5rem",
-        height: 58,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexShrink: 0,
-        boxShadow: "0 1px 0 rgba(0,102,255,0.12), 0 4px 28px rgba(0,0,0,0.7)",
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        backdropFilter: "blur(18px)",
-      }}>
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
-          <Image src="/mie-logo.png" alt="MIE Empire" width={36} height={36}
-            style={{ borderRadius: 8, display: "block" }} />
-          <div>
-            <div style={{ color: "#fff", fontWeight: 900, fontSize: 14, letterSpacing: 0.5 }}>MIE EMPIRE</div>
-            <div style={{ color: "#0066ff", fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>Live Football</div>
-          </div>
-        </Link>
-
+      {/* Back link */}
+      <div>
         <Link href="/" style={{
-          textDecoration: "none",
-          display: "flex", alignItems: "center", gap: 6,
-          background: "rgba(0,102,255,0.1)",
-          border: "1px solid rgba(0,102,255,0.22)",
-          color: "#7ab4ff",
-          borderRadius: 8, padding: "6px 13px",
-          fontSize: 13, fontWeight: 700,
+          textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
+          background: "rgba(0,102,255,0.08)", border: "1px solid rgba(0,102,255,0.2)",
+          color: "#7ab4ff", borderRadius: 8, padding: "6px 13px", fontSize: 13, fontWeight: 700,
         }}>
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </Link>
-      </header>
+      </div>
 
-      {/* ── MAIN ── */}
-      <main style={{
-        flex: 1,
-        maxWidth: 1000,
-        width: "100%",
-        margin: "0 auto",
-        padding: "1.5rem 1rem 3rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
+      {/* Match header */}
+      <div style={{
+        background: "linear-gradient(135deg, #060f1f 0%, #071a10 100%)",
+        border: "1px solid rgba(0,230,118,0.2)",
+        borderRadius: 16, padding: "16px 20px",
+        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        position: "relative", overflow: "hidden",
       }}>
-
-        {/* Match header */}
         <div style={{
-          background: "linear-gradient(135deg, #060f1f 0%, #071a10 100%)",
-          border: "1px solid rgba(0,230,118,0.2)",
-          borderRadius: 16,
-          padding: "16px 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          position: "relative",
-          overflow: "hidden",
+          position: "absolute", inset: 0,
+          backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
+          opacity: 0.04, pointerEvents: "none",
+        }} />
+        <span className="dot-live-red" style={{ flexShrink: 0, position: "relative" }} />
+        <h1 style={{
+          margin: 0, fontSize: "clamp(1rem, 2.5vw, 1.35rem)", fontWeight: 900,
+          color: "#fff", letterSpacing: 0.2, position: "relative",
         }}>
-          {/* grain overlay */}
-          <div style={{
-            position: "absolute", inset: 0,
-            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
-            opacity: 0.04, pointerEvents: "none",
-          }} />
-          <span className="dot-live-red" style={{ flexShrink: 0, position: "relative" }} />
-          <h1 style={{
-            margin: 0,
-            fontSize: "clamp(1rem, 2.5vw, 1.35rem)",
-            fontWeight: 900,
-            color: "#fff",
-            letterSpacing: 0.2,
-            position: "relative",
-          }}>
-            {homeTeam && awayTeam ? (
-              <>
-                {homeTeam}{" "}
-                <span style={{ color: "#ff1744" }}>vs</span>{" "}
-                {awayTeam}
-              </>
-            ) : matchTitle}
-          </h1>
-          <span className="mc-live-pill" style={{ position: "relative" }}>
-            <span className="dot-b" />
-            LIVE
-          </span>
-        </div>
-
-        {/* Stream servers fetched server-side — iframe in initial HTML, no extra round-trip */}
-        <Suspense fallback={<StreamPlayerFallback />}>
-          <ServerPlayer slug={slug} matchTitle={matchTitle} parsed={parsed} />
-        </Suspense>
-
-        {/* Info bar */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          fontSize: 12, color: "rgba(255,255,255,0.22)",
-          flexWrap: "wrap",
-        }}>
-          <span>🔒 Stream provided by third-party sources</span>
-          <span style={{ margin: "0 4px" }}>·</span>
-          <span>If a stream fails, try another server above</span>
-        </div>
-
-      </main>
-
-      {/* ── FOOTER ── */}
-      <footer style={{
-        borderTop: "1px solid rgba(0,102,255,0.1)",
-        padding: "1rem 2rem",
-        display: "flex", justifyContent: "center",
-        background: "rgba(6,8,18,0.8)",
-      }}>
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.1)" }}>
-          © {new Date().getFullYear()} MIE Empire
+          {homeTeam && awayTeam ? (
+            <>{homeTeam} <span style={{ color: "#ff1744" }}>vs</span> {awayTeam}</>
+          ) : matchTitle}
+        </h1>
+        <span className="mc-live-pill" style={{ position: "relative" }}>
+          <span className="dot-b" />LIVE
         </span>
-      </footer>
+      </div>
 
-    </div>
+      <Suspense fallback={<StreamPlayerFallback />}>
+        <ServerPlayer slug={slug} matchTitle={matchTitle} parsed={parsed} />
+      </Suspense>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.22)", flexWrap: "wrap" }}>
+        <span>🔒 Stream provided by third-party sources</span>
+        <span style={{ margin: "0 4px" }}>·</span>
+        <span>If a stream fails, try another server above</span>
+      </div>
+
+    </main>
   );
 }

@@ -4,9 +4,9 @@ import { TeamImg, CompImg } from "./TeamImg";
 
 const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#5a7090", label: "#3a5070", panel: "#0f1a2e" };
 
-// Pinned competitions — CompId/Sid for the 2025-26 season
+// Pinned competitions — use Sofascore IDs (tournamentId=uid, seasonId=seasonId)
 const FEATURED_LEAGUES = [
-  { name: "Premier League", country: "England", compId: "65", sid: "21997", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+  { name: "Premier League", country: "England", compId: "17", sid: "76986", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
 ];
 
 export async function Sidebar() {

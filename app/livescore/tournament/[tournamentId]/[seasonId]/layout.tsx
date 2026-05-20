@@ -1,16 +1,37 @@
-import { getLsStageMeta, lsCompImg } from "@/lib/livescoreCom";
+import { getLsStageMeta } from "@/lib/livescoreCom";
+import { getTournamentSeasons, tournamentImg } from "@/lib/sofascore";
 import { TournamentNav } from "../TournamentNav";
-import { CompImg } from "@/app/livescore/TeamImg";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }>; children: React.ReactNode };
+
+// Sofascore unique-tournament IDs we handle natively
+const SF_UIDS: Record<string, number> = {
+  "17": 17, // Premier League
+  "16": 16, // World Cup
+};
 
 export default async function TournamentSeasonLayout({ params, children }: Props) {
   const { tournamentId, seasonId } = await params;
 
-  const meta = await getLsStageMeta(seasonId);
-  const name = meta.name;
-  const country = meta.country;
-  const badge = meta.badge;
+  let name = "Competition";
+  let country = "";
+  let badgeUrl = "";
+
+  const sfUid = SF_UIDS[tournamentId];
+  if (sfUid) {
+    const seasons = await getTournamentSeasons(sfUid);
+    const season = seasons.find((s) => String(s.id) === seasonId) ?? seasons[0];
+    name = season?.name ?? "Competition";
+    country = sfUid === 17 ? "England" : sfUid === 16 ? "International" : "";
+    badgeUrl = tournamentImg(sfUid);
+  } else {
+    const meta = await getLsStageMeta(seasonId);
+    name = meta.name;
+    country = meta.country;
+    badgeUrl = meta.badge
+      ? `https://storage.livescore.com/images/competition/medium/${meta.badge}`
+      : "";
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
@@ -25,7 +46,10 @@ export default async function TournamentSeasonLayout({ params, children }: Props
         border: "1px solid #1e2a3a",
         borderBottom: "none",
       }}>
-        <CompImg src={lsCompImg(badge)} size={52} radius={10} />
+        {badgeUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={badgeUrl} alt={name} width={52} height={52} style={{ borderRadius: 10, objectFit: "contain" }} />
+        )}
         <div>
           <div style={{ color: "#f0f0f0", fontSize: 19, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.2 }}>
             {name}
