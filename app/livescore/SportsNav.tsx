@@ -4,8 +4,6 @@ import { usePathname } from "next/navigation";
 
 const SPORTS = [
   { href: "/livescore", label: "Football" },
-  { href: "/livescore/basketball", label: "Basketball" },
-  { href: "/livescore/volleyball", label: "Volleyball" },
 ];
 
 export function SportsNav() {

@@ -14,7 +14,6 @@ export function SiteFooter() {
           <Link href="/livescore">Livescore</Link>
           <Link href="/">Watch</Link>
           <Link href="/worldcup">World Cup</Link>
-          <Link href="/rwanda">Rwanda PL</Link>
           <span>Special thanks to{" "}
             <a href="https://www.atomiq.rw/" target="_blank" rel="noopener noreferrer"
               style={{ color: "#f5a623", fontWeight: 700 }}>ATOMIQ</a>

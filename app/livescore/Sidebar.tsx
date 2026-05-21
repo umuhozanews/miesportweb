@@ -13,9 +13,6 @@ const FEATURED_LEAGUES = [
   { name: "Ligue 1",          country: "France",      compId: "34",  sid: "75516",  flag: "🇫🇷" },
 ];
 
-const FEATURED_BASKETBALL = [
-  { name: "NBA", country: "USA", href: "/livescore/basketball/nba", flag: "🏀" },
-];
 
 export async function Sidebar() {
   const today = new Date().toISOString().split("T")[0];
@@ -49,29 +46,6 @@ export async function Sidebar() {
           <Link
             key={lg.sid}
             href={`/livescore/tournament/${lg.compId}/${lg.sid}`}
-            className="sf-sidebar-item"
-            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
-          >
-            <span style={{ fontSize: 18, flexShrink: 0, width: 22, textAlign: "center" }}>{lg.flag}</span>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{lg.name}</div>
-              <div style={{ fontSize: 11, color: C.muted }}>{lg.country}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {/* Basketball */}
-      <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-        <div style={{ padding: "10px 13px 8px" }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Basketball
-          </span>
-        </div>
-        {FEATURED_BASKETBALL.map((lg) => (
-          <Link
-            key={lg.href}
-            href={lg.href}
             className="sf-sidebar-item"
             style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
           >
