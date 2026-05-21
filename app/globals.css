@@ -707,6 +707,7 @@ a { color: inherit; }
     linear-gradient(oklch(1 0 0 / 4%) 1px, transparent 1px),
     linear-gradient(90deg, oklch(1 0 0 / 4%) 1px, transparent 1px);
   background-size: 48px 48px;
+  z-index: 1;
 }
 
 /* Font display */
@@ -775,10 +776,26 @@ a { color: inherit; }
   position: relative;
   overflow: hidden;
   border-bottom: 1px solid var(--lp-border);
+  background-image: url('/foot.png');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+}
+.lp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(4, 10, 24, 0.72) 0%,
+    rgba(4, 10, 24, 0.55) 40%,
+    rgba(4, 10, 24, 0.82) 100%
+  );
+  z-index: 0;
 }
 .lp-hero-inner {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   max-width: 1280px;
   margin: 0 auto;
   padding: 4rem 1.5rem 5rem;
@@ -788,17 +805,19 @@ a { color: inherit; }
   position: absolute; top: -10rem; right: -10rem;
   width: 600px; height: 600px;
   border-radius: 50%;
-  background: rgba(67,56,202,0.22);
+  background: rgba(67,56,202,0.18);
   filter: blur(90px);
   pointer-events: none;
+  z-index: 1;
 }
 .lp-hero-orb-bl {
   position: absolute; bottom: -10rem; left: -10rem;
   width: 600px; height: 600px;
   border-radius: 50%;
-  background: rgba(34,197,94,0.14);
+  background: rgba(34,197,94,0.10);
   filter: blur(90px);
   pointer-events: none;
+  z-index: 1;
 }
 .lp-hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
