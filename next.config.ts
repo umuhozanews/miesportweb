@@ -26,6 +26,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   turbopack: {
     root: __dirname,
   },
@@ -61,6 +62,13 @@ const nextConfig: NextConfig = {
         source: "/api/livescore-proxy/(.*)",
         headers: [
           { key: "Cache-Control", value: "public, s-maxage=30, stale-while-revalidate=15" },
+        ],
+      },
+      {
+        // Image proxy — cache logos/badges aggressively at the CF edge
+        source: "/api/img",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" },
         ],
       },
     ];

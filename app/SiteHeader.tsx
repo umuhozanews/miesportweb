@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const RadioSvg = () => (
   <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -41,110 +42,161 @@ const NAV = [
   { href: "/worldcup",  label: "World Cup", Icon: TrophySvg, watch: false },
 ] as const;
 
+
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const path = usePathname();
 
   return (
-    <header style={{
-      position: "sticky", top: 0, zIndex: 50,
-      borderBottom: "1px solid var(--lp-border)",
-      background: "oklch(0.13 0.02 270 / 0.85)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
-    }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", height: 64, display: "flex", alignItems: "center", gap: 20, padding: "0 1.25rem" }}>
-
-        {/* Logo */}
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <Image
-            src="/mie-logo.png"
-            alt="MIE Sport"
-            width={36}
-            height={36}
-            style={{ borderRadius: 8, display: "block", filter: "drop-shadow(0 0 10px oklch(0.88 0.24 155 / 40%))" }}
-          />
-          <div className="lp-hdr-logo-text" style={{ lineHeight: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 15, letterSpacing: "-0.02em", color: "#fff" }}>MIE Sport</div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--lp-primary)", marginTop: 2 }}>Live Football</div>
-          </div>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="lp-hdr-desktop-nav" style={{ marginLeft: 12 }}>
-          {NAV.map(({ href, label, Icon, watch }) => {
-            const active = watch
-              ? (path === "/" || path.startsWith("/watch"))
-              : (path === href || path.startsWith(href + "/"));
-            return (
-              <Link key={href} href={href} style={{
-                textDecoration: "none",
-                display: "flex", alignItems: "center", gap: 7,
-                borderRadius: 10, padding: "7px 14px", fontSize: 13, fontWeight: 600,
-                transition: "all 0.15s",
-                background: active ? "var(--lp-blue)" : "transparent",
-                color: active ? "#fff" : "var(--lp-muted-fg)",
-                boxShadow: active ? "0 0 30px -8px oklch(0.62 0.21 260 / 50%)" : "none",
-              }}>
-                <Icon />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Right */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="lp-hdr-live-badge" style={{
-            borderRadius: 40, background: "var(--lp-surface)",
-            padding: "6px 14px", gap: 8,
-          }}>
-            <span className="lp-live-dot" style={{ width: 8, height: 8 }} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#fff" }}>LIVE NOW</span>
-          </div>
-
-          <button
-            onClick={() => setOpen(v => !v)}
-            className="lp-hdr-menu-btn"
-            style={{
-              background: "var(--lp-surface)", border: "none", cursor: "pointer",
-              width: 36, height: 36, borderRadius: 10,
-              alignItems: "center", justifyContent: "center", color: "#fff",
-            }}
-            aria-label="Toggle menu"
-          >
-            {open ? <XSvg /> : <MenuSvg />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile nav dropdown */}
-      <nav
-        className={`lp-hdr-mobile-nav${open ? " lp-open" : ""}`}
-        style={{
-          borderTop: "1px solid var(--lp-border)",
-          background: "oklch(0.13 0.02 270)",
-          padding: "12px 16px",
-          flexDirection: "column", gap: 4,
-        }}
+    <div className="lp-header-wrap">
+      <motion.div
+        className="lp-header-inner"
+        initial={{ y: -64, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        {NAV.map(({ href, label, Icon, watch }) => {
-          const active = watch
-            ? (path === "/" || path.startsWith("/watch"))
-            : (path === href || path.startsWith(href + "/"));
-          return (
-            <Link key={href} href={href} onClick={() => setOpen(false)} style={{
-              textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
-              borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 600,
-              background: active ? "var(--lp-blue)" : "transparent",
-              color: active ? "#fff" : "rgba(255,255,255,0.8)",
+        {/* Main bar */}
+        <div style={{ height: 66, display: "flex", alignItems: "center", gap: 16, padding: "0 1.25rem" }}>
+
+          {/* Logo — bigger, more visible */}
+          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <motion.div
+              whileHover={{ scale: 1.06 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              style={{
+                position: "relative",
+                width: 46, height: 46,
+                borderRadius: 12,
+                background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)",
+                border: "1.5px solid rgba(129,140,248,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 24px rgba(67,56,202,0.55), 0 0 48px rgba(67,56,202,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+                flexShrink: 0,
+              }}
+            >
+              <Image
+                src="/mie-logo.png"
+                alt="MIE Empire"
+                width={32}
+                height={32}
+                style={{ borderRadius: 8, display: "block" }}
+              />
+            </motion.div>
+            <div className="lp-hdr-logo-text" style={{ lineHeight: 1 }}>
+              <div style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                fontSize: 20,
+                letterSpacing: "0.06em",
+                color: "#fff",
+                textTransform: "uppercase",
+                textShadow: "0 0 20px rgba(129,140,248,0.5)",
+              }}>
+                MIE EMPIRE
+              </div>
+              <div style={{
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "#22C55E",
+                marginTop: 3,
+                textShadow: "0 0 10px rgba(34,197,94,0.6)",
+              }}>
+                Live Football
+              </div>
+            </div>
+          </Link>
+
+          {/* Desktop nav */}
+          <nav className="lp-hdr-desktop-nav" style={{ marginLeft: 12 }}>
+            {NAV.map(({ href, label, Icon, watch }) => {
+              const active = watch
+                ? (path === "/" || path.startsWith("/watch"))
+                : (path === href || path.startsWith(href + "/"));
+              return (
+                <Link key={href} href={href} style={{
+                  textDecoration: "none",
+                  display: "flex", alignItems: "center", gap: 7,
+                  borderRadius: 10, padding: "7px 14px", fontSize: 13, fontWeight: 700,
+                  transition: "all 0.18s",
+                  background: active ? "rgba(67,56,202,0.75)" : "transparent",
+                  color: active ? "#fff" : "rgba(255,255,255,0.55)",
+                  boxShadow: active ? "0 0 24px -6px rgba(67,56,202,0.7)" : "none",
+                  cursor: "pointer",
+                }}>
+                  <Icon />
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right side */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+
+            {/* Live badge */}
+            <div className="lp-hdr-live-badge" style={{
+              borderRadius: 40,
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.25)",
+              padding: "5px 12px", gap: 7,
             }}>
-              <Icon />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-    </header>
+              <span className="lp-live-dot" style={{ width: 7, height: 7, background: "#22C55E" }} />
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", color: "#22C55E", textTransform: "uppercase" }}>Live</span>
+            </div>
+
+            {/* Hamburger */}
+            <button
+              onClick={() => setOpen(v => !v)}
+              className="lp-hdr-menu-btn"
+              style={{
+                background: "rgba(67,56,202,0.2)", border: "1px solid rgba(67,56,202,0.3)", cursor: "pointer",
+                width: 36, height: 36, borderRadius: 10,
+                alignItems: "center", justifyContent: "center", color: "#fff",
+                transition: "background 0.15s",
+              }}
+              aria-label="Toggle menu"
+            >
+              {open ? <XSvg /> : <MenuSvg />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile nav dropdown */}
+        <AnimatePresence>
+          {open && (
+            <motion.nav
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              style={{ overflow: "hidden", borderTop: "1px solid rgba(67,56,202,0.2)" }}
+            >
+              <div style={{ padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+                {NAV.map(({ href, label, Icon, watch }) => {
+                  const active = watch
+                    ? (path === "/" || path.startsWith("/watch"))
+                    : (path === href || path.startsWith(href + "/"));
+                  return (
+                    <Link key={href} href={href} onClick={() => setOpen(false)} style={{
+                      textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+                      borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+                      background: active ? "rgba(67,56,202,0.6)" : "transparent",
+                      color: active ? "#fff" : "rgba(255,255,255,0.75)",
+                      transition: "background 0.15s",
+                      cursor: "pointer",
+                    }}>
+                      <Icon />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
   );
 }

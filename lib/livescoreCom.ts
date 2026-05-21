@@ -257,6 +257,34 @@ export async function getLsTeamFromEvents(
   return null;
 }
 
+/* ─── Squad ─── */
+
+export type LsPlayer = {
+  Pid: string;
+  Pnm: string;
+  Sno?: string;
+  Pos?: string;
+  Img?: string;
+  Age?: number;
+  Nat?: string;
+  NatIso?: string;
+};
+
+export const getLsSquad = cache(
+  async (teamId: string): Promise<LsPlayer[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await lsFetchRaw<any>(`/v1/api/app/squad/${teamId}/0/${EAT_OFFSET}`);
+    if (!d) return [];
+    const flat: LsPlayer[] = [];
+    for (const key of ["Plrs", "Players", "GK", "DF", "MF", "FW"]) {
+      if (Array.isArray(d[key])) flat.push(...(d[key] as LsPlayer[]));
+    }
+    return flat;
+  },
+  ["ls-squad"],
+  { revalidate: 3600 },
+);
+
 /* ─── Team API ─── */
 
 export const getLsTeam = cache(
@@ -384,15 +412,19 @@ export const getLsSearch = cache(
 
 /* ─── Image helpers ─── */
 
+function imgProxy(url: string): string {
+  return `/api/img?url=${encodeURIComponent(url)}`;
+}
+
 export function lsTeamImg(img: string, fallbackId?: string): string {
   const name = img || (fallbackId ? `${fallbackId}.png` : "");
   if (!name) return "";
-  return `https://storage.livescore.com/images/team/medium/${name}`;
+  return imgProxy(`https://storage.livescore.com/images/team/medium/${name}`);
 }
 
 export function lsCompImg(badgeUrl: string): string {
   if (!badgeUrl) return "";
-  return `https://storage.livescore.com/images/competition/medium/${badgeUrl}`;
+  return imgProxy(`https://storage.livescore.com/images/competition/medium/${badgeUrl}`);
 }
 
 /* ─── Time/date helpers ─── */

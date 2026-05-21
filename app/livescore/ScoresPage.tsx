@@ -13,6 +13,12 @@ import {
   type LsEvent,
 } from "@/lib/livescoreCom";
 import type { Sport } from "@/lib/sofascore";
+import {
+  getESPNScoreboardForDate,
+  espnFmtTime,
+  type EspnLeagueScores,
+  type EspnEvent,
+} from "@/lib/espn";
 import { TeamImg, CompImg } from "./TeamImg";
 
 const C = {
@@ -83,23 +89,42 @@ export function ScoresPage({ sport, date, basePath }: { sport: Sport; date: stri
   );
 }
 
-/* ─── All sports: fetch from livescore.com API ─── */
+/* ─── All sports: ESPN (primary) + livescore.com (extra leagues) ─── */
 async function AllSportsGroups({ sport, date }: { sport: Sport; date: string }) {
   const lsSport = toApiSport(sport);
-  const stages = await getLsStages(date, lsSport);
 
-  if (stages.length === 0) {
+  // Fetch both sources in parallel
+  const [stages, espnLeagues] = await Promise.all([
+    getLsStages(date, lsSport),
+    sport === "football" ? getESPNScoreboardForDate(date) : Promise.resolve([]),
+  ]);
+
+  // Collect ESPN league IDs that livescore already covers so we don't duplicate
+  const lsLeagueNames = new Set(stages.map((s) => s.Snm.toLowerCase()));
+
+  // ESPN leagues not already covered by livescore
+  const espnExtra = espnLeagues.filter(
+    (l) => !lsLeagueNames.has(l.leagueName.toLowerCase()),
+  );
+
+  if (stages.length === 0 && espnExtra.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "5rem 1rem", color: C.muted }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-        <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: C.text }}>No matches scheduled</p>
-        <p style={{ fontSize: 13, marginTop: 6 }}>Try another date</p>
+        <p style={{ fontWeight: 700, fontSize: 15, margin: 0, color: C.text }}>No matches found</p>
+        <p style={{ fontSize: 13, marginTop: 6 }}>
+          {sport === "football" ? "No fixtures scheduled for this date" : "No matches scheduled for this date"}
+        </p>
       </div>
     );
   }
 
   return (
     <>
+      {/* ESPN major leagues first — always reliable */}
+      {espnExtra.map((league) => (
+        <EspnLeagueBlock key={league.leagueId} league={league} />
+      ))}
+      {/* Livescore.com for additional leagues */}
       {stages.map((stage) => (
         <LsCompetitionBlock key={stage.Sid} stage={stage} />
       ))}
@@ -160,6 +185,91 @@ function LsCompetitionBlock({ stage }: { stage: LsStage }) {
     </div>
   );
 }
+
+/* ════════════════ ESPN FALLBACK COMPONENTS ════════════════ */
+
+function EspnLeagueBlock({ league }: { league: EspnLeagueScores }) {
+  return (
+    <div style={{ marginBottom: 8, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+      <div className="sf-comp-header" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: C.compHeader, borderLeft: "3px solid #4338CA" }}>
+        <div style={{ width: 22, height: 22, borderRadius: 3, background: "rgba(67,56,202,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth={2}><circle cx={12} cy={12} r={10}/><path d="M12 8v8m-4-4h8" strokeLinecap="round"/></svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{league.leagueName}</div>
+          <div style={{ fontSize: 11, color: C.muted }}>ESPN</div>
+        </div>
+      </div>
+      <div style={{ background: C.panel }}>
+        {league.events.map((event, i) => (
+          <EspnScoreRow key={event.id} event={event} last={i === league.events.length - 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EspnScoreRow({ event, last }: { event: EspnEvent; last: boolean }) {
+  const isLive = event.status === "live";
+  const isFt = event.status === "finished";
+  const isNS = event.status === "scheduled";
+  const hs = event.homeScore;
+  const as_ = event.awayScore;
+  const homeWon = isFt && hs !== null && as_ !== null && hs > as_;
+  const awayWon = isFt && hs !== null && as_ !== null && as_ > hs;
+  const timeLabel = isLive
+    ? (event.statusDetail?.includes("Halftime") || event.statusDetail?.includes("HT") ? "HT" : "LIVE")
+    : isFt ? "FT"
+    : espnFmtTime(event.startTimestamp);
+
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "52px 1fr auto",
+      borderBottom: last ? "none" : `1px solid ${C.border}`,
+      background: isLive ? "rgba(34,197,94,0.04)" : "transparent",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRight: `1px solid ${C.border}`, padding: "0 6px" }}>
+        {isLive ? (
+          <span style={{ fontSize: 11, fontWeight: 900, color: C.live, textAlign: "center" }}>
+            {timeLabel}
+          </span>
+        ) : isFt ? (
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.ft }}>FT</span>
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.blue }}>{timeLabel}</span>
+        )}
+      </div>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 14px 6px" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.homeTeam.logo} width={16} height={16} alt="" style={{ borderRadius: 2, objectFit: "contain" }} />
+          <span style={{ fontSize: 14, fontWeight: homeWon ? 700 : 400, color: isFt && !homeWon ? C.muted : "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {event.homeTeam.name}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 14px 8px", borderTop: `1px solid ${C.innerBorder}` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.awayTeam.logo} width={16} height={16} alt="" style={{ borderRadius: 2, objectFit: "contain" }} />
+          <span style={{ fontSize: 14, fontWeight: awayWon ? 700 : 400, color: isFt && !awayWon ? C.muted : "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {event.awayTeam.name}
+          </span>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-end", paddingRight: 16 }}>
+        {isNS ? (
+          <span style={{ fontSize: 12, color: C.dimmed }}>vs</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 16, fontWeight: 800, color: isLive ? C.live : homeWon ? "#fff" : C.muted, lineHeight: "2.1", minWidth: 16, textAlign: "center" }}>{hs ?? "-"}</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: isLive ? C.live : awayWon ? "#fff" : C.muted, lineHeight: "2.1", minWidth: 16, textAlign: "center" }}>{as_ ?? "-"}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════ LIVESCORE.COM COMPONENTS ════════════════ */
 
 function LsMatchRow({ event, last }: { event: LsEvent; last: boolean }) {
   const isNS = lsIsNS(event);

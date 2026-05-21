@@ -208,7 +208,20 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
   const settings = widget?.data?.settings;
 
   if (!settings?.events) {
-    throw new Error("Could not find Elfsight event calendar settings.");
+    return {
+      sourceUrl: HOME_URL,
+      widgetId,
+      bootUrl,
+      scrapedAt: new Date().toISOString(),
+      widgetTitle: "Upcoming Top Matches",
+      settings: {
+        layout: null, groupBy: null, showPastEvents: false,
+        numberOfEventsInList: null, eventClickAction: null,
+        enableEventLinking: null, displayDateFormat: null,
+        displayTimeFormat: null, inLocalTimeZone: null,
+      },
+      matches: [],
+    };
   }
 
   const now = new Date();
@@ -241,27 +254,26 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
   };
 }
 
-const streamCache = new Map<string, { data: SoccerTvHdStreamResult; ts: number }>();
-const STREAM_TTL = 5 * 60_000; // 5 minutes
+// Shared edge cache — all CF Worker instances share this via CF Cache API.
+// The slug is part of the cache key so each match gets its own entry.
+export const getCachedStvStream = cache(
+  async (slug: string): Promise<SoccerTvHdStreamResult> => scrapeSoccerTvHdStream(slug),
+  ["stv-stream-v3"],
+  { revalidate: 300 }, // 5 min
+);
 
 export async function scrapeSoccerTvHdStream(
   input: string,
 ): Promise<SoccerTvHdStreamResult> {
   const sourceUrl = toSoccerTvHdPostUrl(input);
 
-  const cached = streamCache.get(sourceUrl);
-  if (cached && Date.now() - cached.ts < STREAM_TTL) return cached.data;
+  // Fetch the match page — 5s timeout, fail fast if CDN is blocking
+  const html = await fetchText(sourceUrl, 5_000);
+  // Extract embed/HLS/DASH URLs directly from HTML — skip discoverPlaylistChildren
+  // because CF Workers IPs are blocked by CacheFly CDN (always returns 403, wastes 2-3s)
+  const streams = dedupeStreams(extractMediaResources(html, sourceUrl));
 
-  const html = await fetchText(sourceUrl, 10_000);
-  const htmlStreams = extractMediaResources(html, sourceUrl);
-  const playlistStreams = await Promise.all(
-    htmlStreams
-      .filter((stream) => stream.type === "hls" || stream.type === "dash")
-      .map((stream) => discoverPlaylistChildren(stream, sourceUrl)),
-  );
-  const streams = dedupeStreams([...htmlStreams, ...playlistStreams.flat()]);
-
-  const result: SoccerTvHdStreamResult = {
+  return {
     sourceUrl,
     slug: getSlug(sourceUrl) ?? "",
     scrapedAt: new Date().toISOString(),
@@ -277,9 +289,6 @@ export async function scrapeSoccerTvHdStream(
       userAgent: pickUA(),
     },
   };
-
-  streamCache.set(sourceUrl, { data: result, ts: Date.now() });
-  return result;
 }
 
 async function getHomepageWidgetId(timeoutMs = 4_000): Promise<string> {

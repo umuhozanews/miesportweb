@@ -293,6 +293,158 @@ export const getESPNLeaders = cache(
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
 
+// ── Daily scoreboard (fallback when primary livescore API is down) ─────────────
+
+export type EspnLeagueScores = {
+  leagueId: string;
+  leagueName: string;
+  events: EspnEvent[];
+};
+
+const MAJOR_LEAGUES = [
+  { id: "eng.1",           name: "Premier League" },
+  { id: "esp.1",           name: "La Liga" },
+  { id: "ger.1",           name: "Bundesliga" },
+  { id: "ita.1",           name: "Serie A" },
+  { id: "fra.1",           name: "Ligue 1" },
+  { id: "uefa.champions",  name: "Champions League" },
+  { id: "uefa.europa",     name: "Europa League" },
+  { id: "fifa.world",      name: "World Cup" },
+  { id: "usa.1",           name: "MLS" },
+];
+
+export const getESPNScoreboardForDate = cache(
+  async (date: string): Promise<EspnLeagueScores[]> => {
+    // ESPN scoreboard uses range format YYYYMMDD-YYYYMMDD even for a single day
+    const d = date.replace(/-/g, "");
+    const dateRange = `${d}-${d}`;
+    const results = await Promise.allSettled(
+      MAJOR_LEAGUES.map(async (league) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = await espnFetch<any>(`${ESPN_V1}/${league.id}/scoreboard?dates=${dateRange}&limit=50`);
+        const events: EspnEvent[] = (data?.events ?? []).flatMap((ev: unknown) => {
+          const parsed = parseEvent(ev);
+          return parsed ? [parsed] : [];
+        });
+        return { leagueId: league.id, leagueName: league.name, events };
+      }),
+    );
+    return results
+      .filter((r) => r.status === "fulfilled" && r.value.events.length > 0)
+      .map((r) => (r as PromiseFulfilledResult<EspnLeagueScores>).value);
+  },
+  ["espn-scoreboard-date"],
+  { revalidate: 60 },
+);
+
+// ── NBA ───────────────────────────────────────────────────────────────────────
+
+export type NbaConference = {
+  name: string; // "Eastern Conference" | "Western Conference"
+  rows: EspnStandingRow[];
+};
+
+export const getESPNNBAStandings = cache(
+  async (): Promise<NbaConference[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await espnFetch<any>(`https://site.api.espn.com/apis/v2/sports/basketball/nba/standings`);
+    if (!d?.children?.length) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return d.children.map((conf: any) => ({
+      name: conf.name ?? conf.abbreviation ?? "Conference",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rows: (conf.standings?.entries ?? []).map((e: any) => parseEntry(e)),
+    }));
+  },
+  ["espn-nba-standings"],
+  { revalidate: 3600 },
+);
+
+export const getESPNNBAScoreboard = cache(
+  async (date: string): Promise<EspnEvent[]> => {
+    const d = date.replace(/-/g, "");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await espnFetch<any>(
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${d}-${d}&limit=50`,
+    );
+    if (!data?.events) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data.events as any[]).flatMap((ev) => {
+      const comp = ev.competitions?.[0];
+      if (!comp) return [];
+      const home = comp.competitors?.find((c: { homeAway: string }) => c.homeAway === "home");
+      const away = comp.competitors?.find((c: { homeAway: string }) => c.homeAway === "away");
+      if (!home || !away) return [];
+      const statusName: string = comp.status?.type?.name ?? "STATUS_SCHEDULED";
+      const status = statusName === "STATUS_FINAL" || comp.status?.type?.completed
+        ? "finished" : statusName === "STATUS_IN_PROGRESS" || statusName === "STATUS_HALFTIME"
+        ? "live" : "scheduled";
+      const date = new Date(ev.date ?? 0);
+      const event: EspnEvent = {
+        id: ev.id,
+        homeTeam: parseTeam(home.team),
+        awayTeam: parseTeam(away.team),
+        homeScore: status !== "scheduled" ? Number(home.score) : null,
+        awayScore: status !== "scheduled" ? Number(away.score) : null,
+        startTimestamp: Math.floor(date.getTime() / 1000),
+        status,
+        statusDetail: comp.status?.displayClock ?? statusName,
+        groupName: undefined,
+      };
+      return [event];
+    }).sort((a, b) => a.startTimestamp - b.startTimestamp);
+  },
+  ["espn-nba-scoreboard"],
+  { revalidate: 60 },
+);
+
+// ── WC multi-year helpers ─────────────────────────────────────────────────────
+
+const WC_DATE_RANGES: Record<string, { start: string; end: string; knockoutStart: string }> = {
+  "2026": { start: "2026-06-11", end: "2026-07-19", knockoutStart: "2026-07-03" },
+  "2022": { start: "2022-11-20", end: "2022-12-18", knockoutStart: "2022-12-03" },
+  "2018": { start: "2018-06-14", end: "2018-07-15", knockoutStart: "2018-06-30" },
+  "2014": { start: "2014-06-12", end: "2014-07-13", knockoutStart: "2014-06-28" },
+};
+
+export function getWCDateRange(year: string) {
+  return WC_DATE_RANGES[year] ?? null;
+}
+
+export const getESPNWCFixturesByYear = cache(
+  async (year: string): Promise<EspnEvent[]> => {
+    const range = WC_DATE_RANGES[year];
+    if (!range) return [];
+    const events = await fetchESPNRange("fifa.world", new Date(range.start), new Date(range.end));
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    }).sort((a, b) => a.startTimestamp - b.startTimestamp);
+  },
+  ["espn-wc-fixtures-year"],
+  { revalidate: 600 },
+);
+
+export const getESPNWCStandingsByYear = cache(
+  async (year: string): Promise<EspnGroup[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await espnFetch<any>(`${ESPN_V2}/fifa.world/standings?season=${year}`);
+    if (!d?.children?.length) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return d.children.map((child: any) => ({
+      name: child.name ?? child.abbreviation ?? "Group",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rows: (child.standings?.entries ?? []).map((e: any) => parseEntry(e)),
+    }));
+  },
+  ["espn-wc-standings-year"],
+  { revalidate: 3600 },
+);
+
+// ── Time helpers ──────────────────────────────────────────────────────────────
+
 export function espnFmtDate(ts: number): string {
   return new Date(ts * 1000).toLocaleDateString("en-GB", {
     weekday: "short", day: "numeric", month: "short", timeZone: "UTC",

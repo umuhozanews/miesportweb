@@ -4,9 +4,17 @@ import { TeamImg, CompImg } from "./TeamImg";
 
 const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#5a7090", label: "#3a5070", panel: "#0f1a2e" };
 
-// Pinned competitions — use Sofascore IDs (tournamentId=uid, seasonId=seasonId)
 const FEATURED_LEAGUES = [
-  { name: "Premier League", country: "England", compId: "17", sid: "76986", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+  { name: "Premier League",   country: "England",     compId: "17",  sid: "76986",  flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+  { name: "La Liga",          country: "Spain",       compId: "119", sid: "76236",  flag: "🇪🇸" },
+  { name: "Champions League", country: "Europe",      compId: "7",   sid: "76410",  flag: "🏆" },
+  { name: "Bundesliga",       country: "Germany",     compId: "35",  sid: "76319",  flag: "🇩🇪" },
+  { name: "Serie A",          country: "Italy",       compId: "23",  sid: "76465",  flag: "🇮🇹" },
+  { name: "Ligue 1",          country: "France",      compId: "34",  sid: "75516",  flag: "🇫🇷" },
+];
+
+const FEATURED_BASKETBALL = [
+  { name: "NBA", country: "USA", href: "/livescore/basketball/nba", flag: "🏀" },
 ];
 
 export async function Sidebar() {
@@ -30,11 +38,11 @@ export async function Sidebar() {
         </div>
       </form>
 
-      {/* Featured Leagues */}
+      {/* Featured Football Leagues */}
       <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
         <div style={{ padding: "10px 13px 8px" }}>
           <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Featured Leagues
+            Football Leagues
           </span>
         </div>
         {FEATURED_LEAGUES.map((lg) => (
@@ -44,7 +52,30 @@ export async function Sidebar() {
             className="sf-sidebar-item"
             style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
           >
-            <span style={{ fontSize: 18 }}>{lg.flag}</span>
+            <span style={{ fontSize: 18, flexShrink: 0, width: 22, textAlign: "center" }}>{lg.flag}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{lg.name}</div>
+              <div style={{ fontSize: 11, color: C.muted }}>{lg.country}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Basketball */}
+      <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <div style={{ padding: "10px 13px 8px" }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
+            Basketball
+          </span>
+        </div>
+        {FEATURED_BASKETBALL.map((lg) => (
+          <Link
+            key={lg.href}
+            href={lg.href}
+            className="sf-sidebar-item"
+            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
+          >
+            <span style={{ fontSize: 18, flexShrink: 0, width: 22, textAlign: "center" }}>{lg.flag}</span>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{lg.name}</div>
               <div style={{ fontSize: 11, color: C.muted }}>{lg.country}</div>
@@ -108,7 +139,6 @@ export async function Sidebar() {
           </div>
         );
       })()}
-
 
     </div>
   );

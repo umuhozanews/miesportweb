@@ -1,68 +1,132 @@
 export const dynamic = "force-dynamic";
-import { seasonId, getWCTopPlayers, teamImg, type WCTopPlayer } from "@/lib/worldcup";
+import { getESPNLeaders, type EspnLeaderEntry } from "@/lib/espn";
+import { getWCTopPlayers, seasonId, type WCTopPlayer } from "@/lib/worldcup";
 
 type Props = { params: Promise<{ year: string }> };
+
+const WC_2026_START = new Date("2026-06-11T00:00:00Z");
 
 export default async function WCStatsPage({ params }: Props) {
   const { year } = await params;
   const sid = seasonId(year);
-  if (!sid) return <div style={{ padding: "3rem", textAlign: "center", color: "#444" }}>No data for {year}</div>;
 
-  const { goals, assists, rating } = await getWCTopPlayers(sid);
-
-  if (goals.length === 0) {
-    return <div style={{ padding: "3rem", textAlign: "center", color: "#444", fontSize: 13 }}>Stats not available for {year}.</div>;
+  // 2026+: ESPN leaders
+  if (parseInt(year) >= 2026) {
+    if (year === "2026" && new Date() < WC_2026_START) {
+      return <ComingSoon year={year} msg="Stats will be available once the tournament begins June 11, 2026" />;
+    }
+    const leaders = await getESPNLeaders("fifa.world");
+    if (leaders.goals.length === 0 && leaders.assists.length === 0) {
+      return <ComingSoon year={year} msg="Player stats will appear here once matches begin" />;
+    }
+    return (
+      <div style={{ padding: "1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        {leaders.goals.length > 0 && <EspnLeaderTable title="Top Scorers" leaders={leaders.goals} label="G" />}
+        {leaders.assists.length > 0 && <EspnLeaderTable title="Top Assists" leaders={leaders.assists} label="A" />}
+      </div>
+    );
   }
 
+  // Historical: Sofascore
+  if (sid) {
+    const { goals, assists, rating } = await getWCTopPlayers(sid);
+    if (goals.length === 0 && assists.length === 0) {
+      return <ComingSoon year={year} msg={`Player stats not available for ${year}`} />;
+    }
+    return (
+      <div style={{ padding: "1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        {goals.length > 0 && <WCLeaderTable title="Top Scorers" players={goals} statKey="goals" label="G" />}
+        {assists.length > 0 && <WCLeaderTable title="Top Assists" players={assists} statKey="assists" label="A" />}
+        {rating.length > 0 && (
+          <div style={{ gridColumn: "span 2" }}>
+            <WCLeaderTable title="Top Rated" players={rating} statKey="rating" label="Rtg" decimal />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <ComingSoon year={year} msg={`No data available for ${year}`} />;
+}
+
+function EspnLeaderTable({ title, leaders, label }: { title: string; leaders: EspnLeaderEntry[]; label: string }) {
   return (
-    <div style={{ padding: "1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-      <StatTable title="Top Scorers" players={goals.slice(0, 10)} statKey="goals" label="G" />
-      <StatTable title="Top Assists" players={assists.slice(0, 10)} statKey="assists" label="A" />
-      {rating.length > 0 && (
-        <div style={{ gridColumn: "span 2" }}>
-          <StatTable title="Top Rated" players={rating.slice(0, 10)} statKey="rating" label="Rtg" decimal />
+    <div style={{ borderRadius: 12, border: "1px solid rgba(67,56,202,0.25)", overflow: "hidden" }}>
+      <div style={{ padding: "11px 14px", background: "rgba(67,56,202,0.18)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.9)" }}>{title}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(129,140,248,0.55)", letterSpacing: 1 }}>{label}</span>
+      </div>
+      {leaders.slice(0, 10).map((entry, i) => (
+        <div key={entry.athlete.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: i < Math.min(leaders.length, 10) - 1 ? "1px solid rgba(67,56,202,0.12)" : "none", background: "rgba(15,15,35,0.45)" }}>
+          <span style={{ width: 18, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.25)", textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
+          {entry.athlete.headshot
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={entry.athlete.headshot} alt="" width={28} height={28} style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            : <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(67,56,202,0.2)", flexShrink: 0 }} />
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.athlete.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={entry.team.logo} alt="" width={11} height={11} style={{ objectFit: "contain" }} />
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{entry.team.name}</span>
+            </div>
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{entry.value}</span>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-function StatTable({ title, players, statKey, label, decimal }: {
+function WCLeaderTable({ title, players, statKey, label, decimal }: {
   title: string; players: WCTopPlayer[];
   statKey: "goals" | "assists" | "rating"; label: string; decimal?: boolean;
 }) {
+  const sfBase = "https://api.sofascore.com/api/v1";
   return (
-    <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
-      <div style={{ padding: "11px 14px", background: "#141e30", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: "#e0e0e0" }}>{title}</span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: "#354060", letterSpacing: 1 }}>{label}</span>
+    <div style={{ borderRadius: 12, border: "1px solid rgba(67,56,202,0.25)", overflow: "hidden" }}>
+      <div style={{ padding: "11px 14px", background: "rgba(67,56,202,0.18)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.9)" }}>{title}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: "rgba(129,140,248,0.55)", letterSpacing: 1 }}>{label}</span>
       </div>
-      {players.map((p, i) => {
+      {players.slice(0, 10).map((p, i) => {
         const val = p.statistics[statKey];
         const display = decimal && val != null ? Number(val).toFixed(2) : String(val ?? "—");
         return (
-          <div key={p.player.id} className="sf-row" style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "9px 14px",
-            borderBottom: i < players.length - 1 ? "1px solid #181818" : "none",
-            background: "#1c1c1c",
-          }}>
-            <span style={{ width: 18, fontSize: 11, fontWeight: 700, color: "#3a3a3a", textAlign: "center", flexShrink: 0 }}>
-              {i + 1}
-            </span>
+          <div key={p.player.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: i < Math.min(players.length, 10) - 1 ? "1px solid rgba(67,56,202,0.12)" : "none", background: "rgba(15,15,35,0.45)" }}>
+            <span style={{ width: 18, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.25)", textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(67,56,202,0.2)", flexShrink: 0, overflow: "hidden" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${sfBase}/player/${p.player.id}/image`} alt="" width={28} height={28} style={{ objectFit: "cover" }} />
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#d8d8d8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {p.player.name}
-              </div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player.name}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={teamImg(p.team.id)} alt="" width={11} height={11} style={{ objectFit: "contain" }} />
-                <span style={{ fontSize: 10, color: "#484848" }}>{p.team.name}</span>
+                <img src={`${sfBase}/team/${p.team.id}/image`} alt="" width={11} height={11} style={{ objectFit: "contain" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{p.team.name}</span>
               </div>
             </div>
-            <span style={{ fontSize: 18, fontWeight: 900, color: "#e8e8e8", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{display}</span>
+            <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{display}</span>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ComingSoon({ year, msg }: { year: string; msg: string }) {
+  void year;
+  return (
+    <div style={{ padding: "3rem 1.25rem", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, textAlign: "center" }}>
+      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(67,56,202,0.1)", border: "1px solid rgba(67,56,202,0.22)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="rgba(129,140,248,0.5)" strokeWidth={1.4} strokeLinecap="round">
+          <circle cx={12} cy={12} r={10} /><path d="M12 6v6l4 2" />
+        </svg>
+      </div>
+      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 700, margin: 0 }}>Stats not yet available</p>
+      <p style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, margin: 0 }}>{msg}</p>
     </div>
   );
 }
