@@ -1,20 +1,19 @@
 export const dynamic = "force-dynamic";
 import { getLsStageFixtures } from "@/lib/livescoreCom";
-import { getESPNPLFixtures, getESPNWCFixtures } from "@/lib/espn";
-import { EspnMatchTable, CompMatchTable, Empty, ESPN_LEAGUE } from "../_shared";
+import { getESPNLeagueFixtures, getESPNLeagueResults, getESPNWCFixtures } from "@/lib/espn";
+import { EspnMatchTable, CompMatchTable, Empty, COMP_ESPN_MAP } from "../_shared";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
 export default async function TournamentFixturesPage({ params }: Props) {
   const { tournamentId, seasonId } = await params;
-  const espnLeague = ESPN_LEAGUE[tournamentId];
+  const espnCode = COMP_ESPN_MAP[tournamentId];
 
-  if (espnLeague) {
-    const fixtures = espnLeague === "pl" ? await getESPNPLFixtures() : await getESPNWCFixtures();
+  if (espnCode) {
+    const isWC = espnCode === "fifa.world";
+    const fixtures = isWC ? await getESPNWCFixtures() : await getESPNLeagueFixtures(espnCode);
     if (fixtures.length === 0) {
-      const results = espnLeague === "pl"
-        ? await import("@/lib/espn").then((m) => m.getESPNPLResults())
-        : await import("@/lib/espn").then((m) => m.getESPNWCResults());
+      const results = await getESPNLeagueResults(espnCode);
       return <EspnMatchTable events={results.slice(0, 20)} emptyLabel="No upcoming fixtures" />;
     }
     return <EspnMatchTable events={fixtures} />;

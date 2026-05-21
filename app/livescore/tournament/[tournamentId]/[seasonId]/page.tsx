@@ -4,12 +4,12 @@ import {
   getLsCompStandings, lsTeamImg, type LsEvent,
 } from "@/lib/livescoreCom";
 import {
-  getESPNPLFixtures, getESPNPLResults, getESPNPLStandings, getESPNLeaders,
+  getESPNLeagueFixtures, getESPNLeagueResults, getESPNLeagueStandings, getESPNLeaders,
   getESPNWCFixtures, getESPNWCResults, getESPNWCStandings,
   type EspnEvent, type EspnStandingRow,
 } from "@/lib/espn";
 import { TeamImg } from "@/app/livescore/TeamImg";
-import { EspnMatchTable, CompMatchTable, Empty, ESPN_LEAGUE } from "./_shared";
+import { EspnMatchTable, CompMatchTable, Empty, COMP_ESPN_MAP } from "./_shared";
 import Link from "next/link";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
@@ -84,17 +84,17 @@ function SectionHeading({ title, href }: { title: string; href?: string }) {
 async function EspnOverview({
   league, base,
 }: {
-  league: "pl" | "wc";
+  league: string;
   base: string;
 }) {
-  const isPL = league === "pl";
-  const [fixtures, results, standings, { goals }] = await Promise.all([
-    isPL ? getESPNPLFixtures() : getESPNWCFixtures(),
-    isPL ? getESPNPLResults()  : getESPNWCResults(),
-    isPL ? getESPNPLStandings().then((r) => ({ rows: r, groups: [] as never[] }))
-         : getESPNWCStandings().then((gs) => ({ rows: gs[0]?.rows ?? [], groups: gs })),
-    getESPNLeaders(isPL ? "eng.1" : "fifa.world"),
+  const isWC = league === "fifa.world";
+  const [fixtures, results, standingRows, { goals }] = await Promise.all([
+    isWC ? getESPNWCFixtures()                            : getESPNLeagueFixtures(league),
+    isWC ? getESPNWCResults()                             : getESPNLeagueResults(league),
+    isWC ? getESPNWCStandings().then((gs) => gs[0]?.rows ?? []) : getESPNLeagueStandings(league),
+    getESPNLeaders(league),
   ]);
+  const standings = { rows: standingRows };
 
   const nextFixtures = fixtures.slice(0, 5);
   const recentResults = results.slice(0, 5);
@@ -288,10 +288,10 @@ async function LsOverview({ seasonId, base }: { seasonId: string; base: string }
 export default async function TournamentOverviewPage({ params }: Props) {
   const { tournamentId, seasonId } = await params;
   const base = `/livescore/tournament/${tournamentId}/${seasonId}`;
-  const espnLeague = ESPN_LEAGUE[tournamentId];
+  const espnCode = COMP_ESPN_MAP[tournamentId];
 
-  if (espnLeague) {
-    return <EspnOverview league={espnLeague} base={base} />;
+  if (espnCode) {
+    return <EspnOverview league={espnCode} base={base} />;
   }
   return <LsOverview seasonId={seasonId} base={base} />;
 }

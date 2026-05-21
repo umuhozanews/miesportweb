@@ -6,7 +6,15 @@ import Link from "next/link";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
-const ESPN_LEAGUES: Record<string, string> = { "17": "eng.1", "16": "fifa.world" };
+const ESPN_LEAGUES: Record<string, string> = {
+  "17":  "eng.1",
+  "16":  "fifa.world",
+  "119": "esp.1",
+  "7":   "uefa.champions",
+  "35":  "ger.1",
+  "23":  "ita.1",
+  "34":  "fra.1",
+};
 
 function Empty() {
   return (

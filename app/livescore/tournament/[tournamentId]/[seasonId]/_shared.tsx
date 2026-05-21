@@ -6,7 +6,15 @@ import {
 import { espnFmtDate, espnFmtTime, type EspnEvent } from "@/lib/espn";
 import { TeamImg } from "@/app/livescore/TeamImg";
 
-export const ESPN_LEAGUE: Record<string, "pl" | "wc"> = { "17": "pl", "16": "wc" };
+export const COMP_ESPN_MAP: Record<string, string> = {
+  "17":  "eng.1",          // Premier League
+  "16":  "fifa.world",     // World Cup
+  "119": "esp.1",          // La Liga
+  "7":   "uefa.champions", // Champions League
+  "35":  "ger.1",          // Bundesliga
+  "23":  "ita.1",          // Serie A
+  "34":  "fra.1",          // Ligue 1
+};
 
 // ── ESPN components ──────────────────────────────────────────────────────────
 

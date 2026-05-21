@@ -398,6 +398,55 @@ export const getESPNNBAScoreboard = cache(
   { revalidate: 60 },
 );
 
+// ── Generic per-league helpers ────────────────────────────────────────────────
+
+export const getESPNLeagueFixtures = cache(
+  async (league: string): Promise<EspnEvent[]> => {
+    const start = new Date();
+    const end = new Date();
+    end.setUTCDate(end.getUTCDate() + 13);
+    const events = await fetchESPNRange(league, start, end);
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (seen.has(e.id) || e.status === "finished") return false;
+      seen.add(e.id);
+      return true;
+    }).sort((a, b) => a.startTimestamp - b.startTimestamp);
+  },
+  ["espn-lg-fix"],
+  { revalidate: 300 },
+);
+
+export const getESPNLeagueResults = cache(
+  async (league: string): Promise<EspnEvent[]> => {
+    const end = new Date();
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() - 20);
+    const events = await fetchESPNRange(league, start, end);
+    const seen = new Set<string>();
+    return events.filter((e) => {
+      if (seen.has(e.id) || e.status !== "finished") return false;
+      seen.add(e.id);
+      return true;
+    }).sort((a, b) => b.startTimestamp - a.startTimestamp);
+  },
+  ["espn-lg-res"],
+  { revalidate: 300 },
+);
+
+export const getESPNLeagueStandings = cache(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async (league: string): Promise<EspnStandingRow[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = await espnFetch<any>(`${ESPN_V2}/${league}/standings`);
+    if (!d?.children?.[0]) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (d.children[0].standings?.entries ?? []).map((e: any) => parseEntry(e));
+  },
+  ["espn-lg-std"],
+  { revalidate: 300 },
+);
+
 // ── WC multi-year helpers ─────────────────────────────────────────────────────
 
 const WC_DATE_RANGES: Record<string, { start: string; end: string; knockoutStart: string }> = {

@@ -1,16 +1,16 @@
 export const dynamic = "force-dynamic";
 import { getLsStageResults } from "@/lib/livescoreCom";
-import { getESPNPLResults, getESPNWCResults } from "@/lib/espn";
-import { EspnMatchTable, CompMatchTable, Empty, ESPN_LEAGUE } from "../_shared";
+import { getESPNLeagueResults } from "@/lib/espn";
+import { EspnMatchTable, CompMatchTable, Empty, COMP_ESPN_MAP } from "../_shared";
 
 type Props = { params: Promise<{ tournamentId: string; seasonId: string }> };
 
 export default async function TournamentResultsPage({ params }: Props) {
   const { tournamentId, seasonId } = await params;
-  const espnLeague = ESPN_LEAGUE[tournamentId];
+  const espnCode = COMP_ESPN_MAP[tournamentId];
 
-  if (espnLeague) {
-    const results = espnLeague === "pl" ? await getESPNPLResults() : await getESPNWCResults();
+  if (espnCode) {
+    const results = await getESPNLeagueResults(espnCode);
     return <EspnMatchTable events={results} emptyLabel="No results yet" />;
   }
 

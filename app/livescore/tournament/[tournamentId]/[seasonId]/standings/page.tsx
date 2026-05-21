@@ -2,11 +2,11 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getLsCompStandings, lsTeamImg } from "@/lib/livescoreCom";
 import {
-  getESPNPLStandings, getESPNWCStandings,
+  getESPNLeagueStandings, getESPNWCStandings,
   type EspnStandingRow, type EspnGroup,
 } from "@/lib/espn";
 import { TeamImg } from "@/app/livescore/TeamImg";
-import { ESPN_LEAGUE } from "../_shared";
+import { COMP_ESPN_MAP } from "../_shared";
 
 type Props = {
   params: Promise<{ tournamentId: string; seasonId: string }>;
@@ -110,33 +110,12 @@ function ComingSoon() {
 export default async function StandingsPage({ params, searchParams }: Props) {
   const { tournamentId, seasonId } = await params;
   const { g, view = "overall" } = await searchParams;
-  const espnLeague = ESPN_LEAGUE[tournamentId];
+  const espnCode = COMP_ESPN_MAP[tournamentId];
 
   const pageUrl = `/livescore/tournament/${tournamentId}/${seasonId}/standings`;
 
-  // ── ESPN PL ──
-  if (espnLeague === "pl") {
-    const rows = await getESPNPLStandings();
-    if (rows.length === 0) {
-      return <div style={{ textAlign: "center", padding: "3rem", color: "#444", fontSize: 13 }}>Standings not available yet.</div>;
-    }
-    return (
-      <div style={{ padding: "0.5rem 0" }}>
-        <ViewTabs active={view} href={(v) => `${pageUrl}?view=${v}`} />
-        {view !== "overall" ? <ComingSoon /> : (
-          <div className="table-scroll">
-            <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden", minWidth: 480 }}>
-              <TableHeader />
-              {rows.map((row, i) => <PLRow key={row.team.id} row={row} i={i} total={rows.length} />)}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── ESPN WC ──
-  if (espnLeague === "wc") {
+  // ── ESPN WC (grouped) ──
+  if (espnCode === "fifa.world") {
     const groups = await getESPNWCStandings();
     if (groups.length === 0) {
       return <div style={{ textAlign: "center", padding: "3rem", color: "#444", fontSize: 13 }}>Standings not available yet.</div>;
@@ -165,6 +144,27 @@ export default async function StandingsPage({ params, searchParams }: Props) {
             <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden", minWidth: 480 }}>
               <TableHeader />
               {active.rows.map((row, i) => <PLRow key={row.team.id} row={row} i={i} total={active.rows.length} />)}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── ESPN generic (PL, La Liga, Bundesliga, Serie A, Ligue 1, UCL) ──
+  if (espnCode) {
+    const rows = await getESPNLeagueStandings(espnCode);
+    if (rows.length === 0) {
+      return <div style={{ textAlign: "center", padding: "3rem", color: "#444", fontSize: 13 }}>Standings not available yet.</div>;
+    }
+    return (
+      <div style={{ padding: "0.5rem 0" }}>
+        <ViewTabs active={view} href={(v) => `${pageUrl}?view=${v}`} />
+        {view !== "overall" ? <ComingSoon /> : (
+          <div className="table-scroll">
+            <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden", minWidth: 480 }}>
+              <TableHeader />
+              {rows.map((row, i) => <PLRow key={row.team.id} row={row} i={i} total={rows.length} />)}
             </div>
           </div>
         )}
