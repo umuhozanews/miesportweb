@@ -197,11 +197,11 @@ export const getCachedStvHomeMatches = cache(
   { revalidate: 300 }, // 5 min
 );
 
-export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
-  const emptyResult = (widgetId = FALLBACK_WIDGET_ID, bootUrl = ""): SoccerTvHdScrapeResult => ({
+function makeEmptyHomeResult(wId: string, bUrl: string): SoccerTvHdScrapeResult {
+  return {
     sourceUrl: HOME_URL,
-    widgetId,
-    bootUrl,
+    widgetId: wId,
+    bootUrl: bUrl,
     scrapedAt: new Date().toISOString(),
     widgetTitle: "Upcoming Top Matches",
     settings: {
@@ -211,8 +211,10 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
       displayTimeFormat: null, inLocalTimeZone: null,
     },
     matches: [],
-  });
+  };
+}
 
+export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
   let widgetId: string;
   try {
     widgetId = await getHomepageWidgetId(2_000);
@@ -225,14 +227,14 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
   try {
     boot = await fetchJson<ElfsightBootResponse>(bootUrl);
   } catch {
-    return emptyResult(widgetId, bootUrl);
+    return makeEmptyHomeResult(widgetId, bootUrl);
   }
 
   const widget = boot.data?.widgets?.[widgetId];
   const settings = widget?.data?.settings;
 
   if (!settings?.events) {
-    return emptyResult(widgetId, bootUrl);
+    return makeEmptyHomeResult(widgetId, bootUrl);
   }
 
   const now = new Date();
