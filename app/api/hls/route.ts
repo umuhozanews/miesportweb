@@ -1,17 +1,36 @@
+import { rewritePlaylistAny } from "@/lib/hlsProxy";
+
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
 
+const ALLOWED_ORIGINS = new Set([
+  "https://soccer-api.umuhozanews.workers.dev",
+  "https://mie-sport.vercel.app",
+  "https://www.soccertvhd.com",
+]);
+
 function makeCorsHeaders(requestOrigin: string | null) {
+  const allowed =
+    requestOrigin && (ALLOWED_ORIGINS.has(requestOrigin) || requestOrigin.endsWith(".vercel.app"))
+      ? requestOrigin
+      : APPROVED_ORIGIN;
   return new Headers({
-    "access-control-allow-origin": APPROVED_ORIGIN,
+    "access-control-allow-origin": allowed,
     "access-control-allow-methods": "GET,OPTIONS",
     "access-control-allow-headers": "Range,Accept,Content-Type",
     "access-control-expose-headers":
       "Content-Length,Content-Range,Accept-Ranges,Content-Type",
     vary: "Origin",
-    ...(requestOrigin?.endsWith(".vercel.app") || requestOrigin === "null"
-      ? { "access-control-allow-origin": requestOrigin }
-      : {}),
   });
+}
+
+function isPlaylistUrl(url: URL, contentType: string): boolean {
+  return (
+    /\.m3u8(?:\?|$)/i.test(url.toString()) ||
+    /\.mpd(?:\?|$)/i.test(url.toString()) ||
+    contentType.includes("mpegurl") ||
+    contentType.includes("vnd.apple.mpegurl") ||
+    contentType.includes("dash+xml")
+  );
 }
 
 export async function OPTIONS(request: Request) {
@@ -39,8 +58,8 @@ export async function GET(request: Request) {
     return Response.json({ error: "Invalid url parameter." }, { status: 400 });
   }
 
-  if (!targetUrl.hostname.endsWith(".cachefly.net")) {
-    return new Response("Disallowed stream host.", { status: 403 });
+  if (targetUrl.protocol !== "https:" && targetUrl.protocol !== "http:") {
+    return new Response("Only HTTP/HTTPS streams are supported.", { status: 403 });
   }
 
   const reqOriginHeader = request.headers.get("origin");
@@ -56,7 +75,10 @@ export async function GET(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(target, { headers: upstreamHeaders });
+    upstream = await fetch(target, {
+      headers: upstreamHeaders,
+      signal: AbortSignal.timeout(12_000),
+    });
   } catch {
     return new Response("Bad Gateway", {
       status: 502,
@@ -66,11 +88,31 @@ export async function GET(request: Request) {
 
   const cors = makeCorsHeaders(reqOriginHeader);
   const ct = upstream.headers.get("content-type") ?? "";
+
+  // ── Playlist (manifest) ──────────────────────────────────────────────────────
+  // Read the manifest, rewrite every media URL to go through our proxy so that
+  // HLS.js fetches segments with the correct Referer/Origin headers instead of
+  // hitting the CDN directly from the browser (which would be blocked by CORS/auth).
+  if (upstream.ok && isPlaylistUrl(targetUrl, ct)) {
+    const text = await upstream.text();
+    const rewritten = rewritePlaylistAny(text, targetUrl, request.url);
+    const headers = new Headers(cors);
+    headers.set("content-type", ct || "application/vnd.apple.mpegurl");
+    headers.set("cache-control", "no-store, no-cache");
+    return new Response(rewritten, { status: upstream.status, headers });
+  }
+
+  // ── Media segment (TS / fMP4 / etc.) ────────────────────────────────────────
   const responseHeaders = new Headers(cors);
   if (ct) responseHeaders.set("content-type", ct);
-  responseHeaders.set("cache-control", "no-store");
+  // Cache TS segments at the CF edge so concurrent viewers share bandwidth
+  responseHeaders.set("cache-control", "public, s-maxage=30, stale-while-revalidate=10");
   const cl = upstream.headers.get("content-length");
   if (cl) responseHeaders.set("content-length", cl);
+  const cr = upstream.headers.get("content-range");
+  if (cr) responseHeaders.set("content-range", cr);
+  const ar = upstream.headers.get("accept-ranges");
+  if (ar) responseHeaders.set("accept-ranges", ar);
 
   return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
 }

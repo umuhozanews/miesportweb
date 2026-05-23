@@ -21,7 +21,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Disable browser APIs we don't need
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-  // Don't cache API responses on CDN/proxies
+  // Force HTTPS for 2 years
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  // Vary on encoding so CF caches gzip/br separately
   { key: "Vary", value: "Accept-Encoding" },
 ];
 

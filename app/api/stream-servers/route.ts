@@ -1,4 +1,4 @@
-import { getCachedStvStream } from "@/lib/soccerTvHd";
+import { getCachedStvStream, scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
 export const dynamic = "force-dynamic";
@@ -17,28 +17,49 @@ export async function GET(request: Request) {
       const pageSlug = inner.slice(sepIdx + 2);
       if (pageSlug) {
         try {
-          const result = await getCachedStvStream(pageSlug);
+          // Fast path: use the shared edge cache (populated by previous requests)
+          let result = await Promise.race([
+            getCachedStvStream(pageSlug),
+            new Promise<never>((_, rej) =>
+              setTimeout(() => rej(new Error("timeout")), 12_000),
+            ),
+          ]);
+
+          // If cache is empty the match may have just gone live — bypass cache and scrape fresh
+          if (result.streams.length === 0) {
+            try {
+              result = await Promise.race([
+                scrapeSoccerTvHdStream(pageSlug),
+                new Promise<never>((_, rej) =>
+                  setTimeout(() => rej(new Error("timeout")), 10_000),
+                ),
+              ]);
+            } catch { /* keep empty result if fresh scrape also fails */ }
+          }
+
           const seen = new Set<string>();
           const servers: string[] = [];
           const add = (url: string) => {
             if (url && !seen.has(url)) { seen.add(url); servers.push(url); }
           };
 
-          // Embed URLs first — these are clean video players (no wrapper site)
-          for (const s of result.streams) {
-            if (s.type === "embed") add(s.url);
-          }
-          // HLS/DASH via proxy fallback
+          // HLS/DASH through proxy first — controlled headers, best quality
           for (const s of result.streams) {
             if (s.type === "hls" || s.type === "dash") {
               add(getProxiedHlsUrl(s.url, request.url));
             }
           }
+          // Embed iframes as fallback options
+          for (const s of result.streams) {
+            if (s.type === "embed") add(s.url);
+          }
 
-          return Response.json(
-            { servers },
-            { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } },
-          );
+          // Use a short cache when no streams are found so the client re-checks sooner
+          const cacheHeader = servers.length > 0
+            ? "public, s-maxage=120, stale-while-revalidate=60"
+            : "public, s-maxage=20, stale-while-revalidate=10";
+
+          return Response.json({ servers }, { headers: { "Cache-Control": cacheHeader } });
         } catch {
           return Response.json({ servers: [] });
         }

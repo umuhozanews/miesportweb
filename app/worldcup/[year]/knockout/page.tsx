@@ -1,20 +1,14 @@
 export const dynamic = "force-dynamic";
 import { getESPNWCFixturesByYear, getWCDateRange, espnFmtDate, type EspnEvent } from "@/lib/espn";
-import {
-  getWCKnockoutMatches, seasonId, fmtWCDate, fmtWCTime, roundLabel,
-  type WCEvent,
-} from "@/lib/worldcup";
 
 type Props = { params: Promise<{ year: string }> };
 
 export default async function WCKnockoutPage({ params }: Props) {
   const { year } = await params;
-  const sid = seasonId(year);
 
-  // 2026+: ESPN with date filter
-  if (parseInt(year) >= 2026) {
+  if (getWCDateRange(year)) {
     const range = getWCDateRange(year);
-    if (!range) return <Empty />;
+    if (!range) return <Placeholder label="No data" sub="" />;
 
     const knockoutStartTs = Math.floor(new Date(range.knockoutStart + "T00:00:00Z").getTime() / 1000);
     const all = await getESPNWCFixturesByYear(year);
@@ -39,41 +33,12 @@ export default async function WCKnockoutPage({ params }: Props) {
     );
   }
 
-  // Historical: Sofascore
-  if (sid) {
-    const events = await getWCKnockoutMatches(sid);
-
-    if (events.length === 0) {
-      return <Placeholder label="Knockout data not available" sub={`No knockout matches found for ${year}`} />;
-    }
-
-    // Group by round, ordered
-    const ROUND_ORDER = [6, 5, 27, 28, 50, 29];
-    const byRound = new Map<number, WCEvent[]>();
-    for (const e of events) {
-      const r = e.roundInfo?.round ?? 0;
-      if (!byRound.has(r)) byRound.set(r, []);
-      byRound.get(r)!.push(e);
-    }
-    const rounds = ROUND_ORDER.filter(r => byRound.has(r));
-
-    return (
-      <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {rounds.map((r) => {
-          const roundEvents = byRound.get(r)!;
-          const label = roundLabel(roundEvents[0]?.roundInfo);
-          return (
-            <section key={r}>
-              <StageHeader label={label} />
-              <MatchGrid>{roundEvents.map((e) => <WCCard key={e.id} event={e} />)}</MatchGrid>
-            </section>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return <Empty />;
+  return (
+    <Placeholder
+      label="Knockout data not available"
+      sub={`Match-by-match data for ${year} is not in our database`}
+    />
+  );
 }
 
 function EspnCard({ event: e }: { event: EspnEvent }) {
@@ -93,28 +58,6 @@ function EspnCard({ event: e }: { event: EspnEvent }) {
       <div style={{ height: 1, background: "rgba(67,56,202,0.2)", margin: "8px 0" }} />
       <MatchRow logo={e.awayTeam.logo} name={e.awayTeam.abbreviation || e.awayTeam.name} score={isFt || isLive ? as_ : undefined} won={awayWon} dim={isFt && !awayWon} isNs={isNs} isLive={isLive} winner={awayWon} />
       {isNs && <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 600 }}>Scheduled</div>}
-    </div>
-  );
-}
-
-function WCCard({ event: e }: { event: WCEvent }) {
-  const isFt = e.status.type === "finished";
-  const isLive = e.status.type === "inprogress";
-  const isNs = e.status.type === "notstarted";
-  const hs = e.homeScore.current ?? 0;
-  const as_ = e.awayScore.current ?? 0;
-  const homeWon = isFt && (e.winnerCode === 1 || hs > as_);
-  const awayWon = isFt && (e.winnerCode === 2 || as_ > hs);
-  const sfBase = "https://api.sofascore.com/api/v1";
-  return (
-    <div style={{ background: "rgba(30,27,75,0.55)", border: `1px solid ${isLive ? "rgba(34,197,94,0.3)" : "rgba(67,56,202,0.25)"}`, borderRadius: 12, padding: "14px 16px" }}>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginBottom: 12, fontWeight: 700 }}>
-        {isLive ? <span style={{ color: "#22c55e" }}>● {e.status.description}</span> : isFt ? `FT · ${fmtWCDate(e.startTimestamp)}` : `${fmtWCDate(e.startTimestamp)} · ${fmtWCTime(e.startTimestamp)}`}
-      </div>
-      <MatchRow logo={`${sfBase}/team/${e.homeTeam.id}/image`} name={e.homeTeam.nameCode || e.homeTeam.name} score={isFt || isLive ? hs : undefined} won={homeWon} dim={isFt && !homeWon} isNs={isNs} isLive={isLive} winner={homeWon} />
-      <div style={{ height: 1, background: "rgba(67,56,202,0.2)", margin: "8px 0" }} />
-      <MatchRow logo={`${sfBase}/team/${e.awayTeam.id}/image`} name={e.awayTeam.nameCode || e.awayTeam.name} score={isFt || isLive ? as_ : undefined} won={awayWon} dim={isFt && !awayWon} isNs={isNs} isLive={isLive} winner={awayWon} />
-      {isNs && <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 600 }}>{fmtWCTime(e.startTimestamp)}</div>}
     </div>
   );
 }
@@ -152,7 +95,7 @@ function StageHeader({ label, dim }: { label: string; dim?: boolean }) {
 }
 
 function MatchGrid({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{children}</div>;
+  return <div className="wc-match-grid">{children}</div>;
 }
 
 function Placeholder({ label, sub }: { label: string; sub: string }) {
@@ -172,6 +115,3 @@ function Placeholder({ label, sub }: { label: string; sub: string }) {
   );
 }
 
-function Empty() {
-  return <div style={{ padding: "3rem", textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: 13 }}>No data available.</div>;
-}

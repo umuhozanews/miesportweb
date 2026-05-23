@@ -1,118 +1,104 @@
+"use client";
 import Link from "next/link";
-import { getLsStages, lsCompImg, lsTeamImg } from "@/lib/livescoreCom";
 import { TeamImg, CompImg } from "./TeamImg";
 
-const C = { border: "rgba(255,255,255,0.08)", text: "#ffffff", muted: "#5a7090", label: "#3a5070", panel: "#0f1a2e" };
+const BG = "#1c1c1c";
+const BORDER = "rgba(255,255,255,0.07)";
+const MUTED = "#666";
+const TEXT = "#e0e0e0";
 
-const FEATURED_LEAGUES = [
-  { name: "Premier League",   country: "England",     compId: "17",  sid: "76986",  flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-  { name: "La Liga",          country: "Spain",       compId: "119", sid: "76236",  flag: "🇪🇸" },
-  { name: "Champions League", country: "Europe",      compId: "7",   sid: "76410",  flag: "🏆" },
-  { name: "Bundesliga",       country: "Germany",     compId: "35",  sid: "76319",  flag: "🇩🇪" },
-  { name: "Serie A",          country: "Italy",       compId: "23",  sid: "76465",  flag: "🇮🇹" },
-  { name: "Ligue 1",          country: "France",      compId: "34",  sid: "75516",  flag: "🇫🇷" },
+const TEAMS = [
+  { name: "Manchester United", country: "England", logo: "https://a.espncdn.com/i/teamlogos/soccer/500/360.png", league: "eng.1", id: "360" },
+  { name: "Liverpool",         country: "England", logo: "https://a.espncdn.com/i/teamlogos/soccer/500/364.png", league: "eng.1", id: "364" },
+  { name: "Arsenal",           country: "England", logo: "https://a.espncdn.com/i/teamlogos/soccer/500/359.png", league: "eng.1", id: "359" },
+  { name: "Manchester City",   country: "England", logo: "https://a.espncdn.com/i/teamlogos/soccer/500/382.png", league: "eng.1", id: "382" },
+  { name: "Real Madrid",       country: "Spain",   logo: "https://a.espncdn.com/i/teamlogos/soccer/500/86.png",  league: "esp.1", id: "86"  },
+  { name: "Barcelona",         country: "Spain",   logo: "https://a.espncdn.com/i/teamlogos/soccer/500/83.png",  league: "esp.1", id: "83"  },
+  { name: "Bayern Munich",     country: "Germany", logo: "https://a.espncdn.com/i/teamlogos/soccer/500/132.png", league: "ger.1", id: "132" },
+  { name: "PSG",               country: "France",  logo: "https://a.espncdn.com/i/teamlogos/soccer/500/160.png", league: "fra.1", id: "160" },
 ];
 
+const COMPETITIONS = [
+  { name: "Premier League",    country: "England",       compId: "17",  sid: "76986", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png" },
+  { name: "La Liga",           country: "Spain",         compId: "119", sid: "76236", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png" },
+  { name: "Serie A",           country: "Italy",         compId: "23",  sid: "76465", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/12.png" },
+  { name: "Bundesliga",        country: "Germany",       compId: "35",  sid: "76319", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png" },
+  { name: "Ligue 1",           country: "France",        compId: "34",  sid: "75516", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png"  },
+  { name: "Champions League",  country: "Europe",        compId: "7",   sid: "76458", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png"  },
+  { name: "Europa League",     country: "Europe",        compId: "8",   sid: "76459", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png" },
+  { name: "FIFA World Cup",    country: "International", compId: "16",  sid: "58210", logo: "https://a.espncdn.com/i/leaguelogos/soccer/500/4.png"  },
+];
 
-export async function Sidebar() {
-  const today = new Date().toISOString().split("T")[0];
-  const stages = await getLsStages(today, "soccer");
+const REGIONS = ["England", "Spain", "Germany", "Italy", "France", "Netherlands", "Portugal", "Africa", "South America"];
 
+function SectionHeader({ label, href }: { label: string; href?: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 8px" }}>
+      <span style={{ fontSize: 11, fontWeight: 800, color: MUTED, letterSpacing: 1.2, textTransform: "uppercase" }}>
+        {label}
+      </span>
+      {href && (
+        <Link href={href} style={{ textDecoration: "none", color: MUTED, fontSize: 14, fontWeight: 500, lineHeight: 1 }}>›</Link>
+      )}
+    </div>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
 
       {/* Search */}
       <form action="/livescore/search" method="get">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 13px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 13px" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input
-            name="q"
-            placeholder="Search teams, leagues…"
-            style={{ background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 13, flex: 1 }}
-          />
+          <input name="q" placeholder="Search team or league" style={{ background: "transparent", border: "none", outline: "none", color: TEXT, fontSize: 14, flex: 1 }} />
         </div>
       </form>
 
-      {/* Featured Football Leagues */}
-      <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-        <div style={{ padding: "10px 13px 8px" }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Football Leagues
-          </span>
-        </div>
-        {FEATURED_LEAGUES.map((lg) => (
-          <Link
-            key={lg.sid}
-            href={`/livescore/tournament/${lg.compId}/${lg.sid}`}
-            className="sf-sidebar-item"
-            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
-          >
-            <span style={{ fontSize: 18, flexShrink: 0, width: 22, textAlign: "center" }}>{lg.flag}</span>
+      {/* TEAMS */}
+      <div style={{ background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+        <SectionHeader label="Teams" href="/livescore/search" />
+        {TEAMS.map((t) => (
+          <Link key={t.name} href={`/livescore/team/espn/${t.league}/${t.id}`} className="sf-sidebar-item"
+            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderTop: `1px solid ${BORDER}` }}>
+            <TeamImg src={t.logo} name={t.name} size={26} radius="50%" />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{lg.name}</div>
-              <div style={{ fontSize: 11, color: C.muted }}>{lg.country}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, lineHeight: 1.3 }}>{t.name}</div>
+              <div style={{ fontSize: 11, color: MUTED }}>{t.country}</div>
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Today's Competitions */}
-      {stages.length > 0 && (
-        <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "10px 13px 8px" }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
-              Today&apos;s Competitions
-            </span>
-          </div>
-          {stages.slice(0, 10).map((stage) => (
-            <Link
-              key={stage.Sid}
-              href={`/livescore/tournament/${stage.CompId}/${stage.Sid}`}
-              className="sf-sidebar-item"
-              style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
-            >
-              <CompImg src={lsCompImg(stage.badgeUrl)} size={22} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.2 }}>{stage.Snm}</div>
-                <div style={{ fontSize: 11, color: C.muted }}>{stage.Cnm}</div>
-              </div>
-              <span style={{ marginLeft: "auto", fontSize: 11, color: C.muted, fontWeight: 700 }}>{stage.Events?.length ?? 0}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Quick team links from today's top matches */}
-      {stages.length > 0 && (() => {
-        const topTeams = stages.slice(0, 3).flatMap((s) =>
-          (s.Events ?? []).slice(0, 1).flatMap((e) => [e.T1?.[0], e.T2?.[0]].filter(Boolean))
-        ).slice(0, 6);
-
-        if (topTeams.length === 0) return null;
-
-        return (
-          <div style={{ background: C.panel, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "10px 13px 8px" }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: C.label, letterSpacing: 1.5, textTransform: "uppercase" }}>
-                Teams Playing Today
-              </span>
+      {/* COMPETITIONS */}
+      <div style={{ background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+        <SectionHeader label="Competitions" href="/livescore" />
+        {COMPETITIONS.map((c) => (
+          <Link key={c.sid} href={`/livescore/tournament/${c.compId}/${c.sid}`} className="sf-sidebar-item"
+            style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderTop: `1px solid ${BORDER}` }}>
+            <CompImg src={c.logo} size={24} radius={4} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: TEXT, lineHeight: 1.3 }}>{c.name}</div>
+              <div style={{ fontSize: 11, color: MUTED }}>{c.country}</div>
             </div>
-            {topTeams.map((t) => t && (
-              <Link
-                key={t.ID}
-                href={`/livescore/team/${t.ID}`}
-                className="sf-sidebar-item"
-                style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, padding: "8px 13px", borderTop: `1px solid ${C.border}` }}
-              >
-                <TeamImg src={lsTeamImg(t.Img, t.ID)} name={t.Nm} size={22} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.Nm}</div>
-              </Link>
-            ))}
-          </div>
-        );
-      })()}
+          </Link>
+        ))}
+      </div>
+
+      {/* REGION */}
+      <div style={{ background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+        <SectionHeader label="Region" />
+        {REGIONS.map((r) => (
+          <Link key={r} href={`/livescore/search?q=${encodeURIComponent(r)}`} className="sf-sidebar-item"
+            style={{ textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderTop: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT }}>{r}</span>
+            <span style={{ color: MUTED, fontSize: 14 }}>›</span>
+          </Link>
+        ))}
+      </div>
 
     </div>
   );

@@ -65,21 +65,21 @@ export function SiteHeader() {
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
               style={{
                 position: "relative",
-                width: 46, height: 46,
-                borderRadius: 12,
+                width: 58, height: 58,
+                borderRadius: 14,
                 background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)",
                 border: "1.5px solid rgba(129,140,248,0.35)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 24px rgba(67,56,202,0.55), 0 0 48px rgba(67,56,202,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+                boxShadow: "0 0 28px rgba(67,56,202,0.65), 0 0 56px rgba(67,56,202,0.25), inset 0 1px 0 rgba(255,255,255,0.1)",
                 flexShrink: 0,
               }}
             >
               <Image
                 src="/mie-logo.png"
-                alt="MIE Empire"
-                width={32}
-                height={32}
-                style={{ borderRadius: 8, display: "block" }}
+                alt="MIE Sport"
+                width={44}
+                height={44}
+                style={{ borderRadius: 10, display: "block" }}
               />
             </motion.div>
             <div className="lp-hdr-logo-text" style={{ lineHeight: 1 }}>
@@ -92,7 +92,7 @@ export function SiteHeader() {
                 textTransform: "uppercase",
                 textShadow: "0 0 20px rgba(129,140,248,0.5)",
               }}>
-                MIE EMPIRE
+                MIE SPORT
               </div>
               <div style={{
                 fontSize: 9,
@@ -103,7 +103,7 @@ export function SiteHeader() {
                 marginTop: 3,
                 textShadow: "0 0 10px rgba(34,197,94,0.6)",
               }}>
-                Live Football
+                Live Sports
               </div>
             </div>
           </Link>

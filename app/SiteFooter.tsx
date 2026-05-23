@@ -15,8 +15,7 @@ export function SiteFooter() {
           <Link href="/">Watch</Link>
           <Link href="/worldcup">World Cup</Link>
           <span>Special thanks to{" "}
-            <a href="https://www.atomiq.rw/" target="_blank" rel="noopener noreferrer"
-              style={{ color: "#f5a623", fontWeight: 700 }}>ATOMIQ</a>
+            <span style={{ color: "#f5a623", fontWeight: 700 }}>GACONDO Tech</span>
           </span>
         </div>
       </div>

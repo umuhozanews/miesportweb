@@ -16,6 +16,14 @@ const STREAM_REFERERS: Record<keyof typeof STREAM_SOURCES, string> = {
 type StreamSource = keyof typeof STREAM_SOURCES;
 
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
+
+// Domains allowed to call this proxy cross-origin
+const ALLOWED_ORIGINS = new Set([
+  "https://soccer-api.umuhozanews.workers.dev",
+  "https://mie-sport.vercel.app",
+  "https://www.soccertvhd.com",
+]);
+
 const SOURCE_BY_HOST = new Map<string, StreamSource>(
   Object.entries(STREAM_SOURCES).map(([k, v]) => [v, k as StreamSource]),
 );
@@ -25,16 +33,18 @@ function isStreamSource(s: string): s is StreamSource {
 }
 
 function makeCorsHeaders(requestOrigin: string | null) {
+  // Allow our own domains; also allow Vercel preview deployments and same-origin (null)
+  const allowed =
+    requestOrigin && (ALLOWED_ORIGINS.has(requestOrigin) || requestOrigin.endsWith(".vercel.app"))
+      ? requestOrigin
+      : APPROVED_ORIGIN;
   return new Headers({
-    "access-control-allow-origin": APPROVED_ORIGIN,
+    "access-control-allow-origin": allowed,
     "access-control-allow-methods": "GET,OPTIONS",
     "access-control-allow-headers": "Range,Accept,Content-Type",
     "access-control-expose-headers":
       "Content-Length,Content-Range,Accept-Ranges,Content-Type",
     vary: "Origin",
-    ...(requestOrigin?.endsWith(".vercel.app") || requestOrigin === "null"
-      ? { "access-control-allow-origin": requestOrigin }
-      : {}),
   });
 }
 
@@ -84,6 +94,9 @@ export async function GET(request: Request, { params }: HlsPathContext) {
   const reqOriginHeader = request.headers.get("origin");
   const range = request.headers.get("range");
 
+  // Detect playlist from URL alone — needed before the fetch for cache policy
+  const isPlaylistUrl = /\.m3u8(\?|$)/i.test(targetUrl);
+
   const upstreamHeaders: Record<string, string> = {
     accept: "application/vnd.apple.mpegurl,application/x-mpegURL,video/mp2t,*/*",
     "accept-language": "en-US,en;q=0.9",
@@ -99,8 +112,17 @@ export async function GET(request: Request, { params }: HlsPathContext) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(targetUrl, { headers: upstreamHeaders });
-  } catch (e) {
+    // TS/DASH segments are immutable — tell CF to cache them across Worker instances
+    // so 1M concurrent viewers of the same match share the same cached segment.
+    const fetchInit: RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } } = {
+      headers: upstreamHeaders,
+      signal: AbortSignal.timeout(12_000),
+    };
+    if (!isPlaylistUrl) {
+      fetchInit.cf = { cacheTtl: 30, cacheEverything: true };
+    }
+    upstream = await fetch(targetUrl, fetchInit as RequestInit);
+  } catch {
     return new Response("Bad Gateway", {
       status: 502,
       headers: makeCorsHeaders(reqOriginHeader),
@@ -110,13 +132,21 @@ export async function GET(request: Request, { params }: HlsPathContext) {
   const cors = makeCorsHeaders(reqOriginHeader);
   const contentType = upstream.headers.get("content-type") ?? "";
   const isPlaylist =
-    /\.m3u8(\?|$)/i.test(targetUrl) ||
+    isPlaylistUrl ||
     contentType.includes("mpegurl") ||
     contentType.includes("vnd.apple");
 
   const responseHeaders = new Headers(cors);
   if (contentType) responseHeaders.set("content-type", contentType);
-  responseHeaders.set("cache-control", upstream.headers.get("cache-control") ?? "no-store");
+
+  // TS/DASH segments are immutable once published — cache at CF edge so 1M concurrent
+  // viewers of the same match share segments instead of each hitting CacheFly directly.
+  // Playlists update every few seconds so they must never be cached.
+  if (isPlaylist) {
+    responseHeaders.set("cache-control", "no-store, no-cache");
+  } else {
+    responseHeaders.set("cache-control", "public, s-maxage=30, stale-while-revalidate=10");
+  }
 
   if (!upstream.ok && upstream.status !== 206) {
     return new Response(upstream.body, {

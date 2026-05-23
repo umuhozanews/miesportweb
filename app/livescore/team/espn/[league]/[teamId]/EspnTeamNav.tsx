@@ -2,16 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function TeamNav({ teamId }: { teamId: string }) {
+export function EspnTeamNav({ base }: { base: string }) {
   const path = usePathname();
-  const base = `/livescore/team/${teamId}`;
   const tabs = [
     { href: base,                label: "Overview", exact: true  },
     { href: `${base}/fixtures`,  label: "Fixtures",  exact: false },
     { href: `${base}/results`,   label: "Results",   exact: false },
     { href: `${base}/tables`,    label: "Tables",    exact: false },
-    { href: `${base}/squad`,     label: "Squad",     exact: false },
-    { href: `${base}/stats`,     label: "Stats",     exact: false },
   ];
   return (
     <div style={{ display: "flex", overflowX: "auto", padding: "0 1rem", scrollbarWidth: "none" }}>

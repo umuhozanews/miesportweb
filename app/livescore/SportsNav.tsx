@@ -2,38 +2,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const SPORTS = [
-  { href: "/livescore", label: "Football" },
-];
-
 export function SportsNav() {
   const path = usePathname();
+  const active = path === "/livescore" || path === "/livescore/";
   return (
-    <div style={{ display: "flex", gap: 6, padding: "8px 0", overflowX: "auto", scrollbarWidth: "none" }}>
-      {SPORTS.map((s) => {
-        const active = s.href === "/livescore"
-          ? path === "/livescore" || path === "/livescore/"
-          : path.startsWith(s.href);
-        return (
-          <Link
-            key={s.href}
-            href={s.href}
-            style={{
-              textDecoration: "none",
-              padding: "5px 16px",
-              borderRadius: 20,
-              fontSize: 13,
-              fontWeight: 700,
-              flexShrink: 0,
-              background: active ? "#fff" : "transparent",
-              color: active ? "#111" : "#666",
-              border: active ? "none" : "1px solid #2a2a2a",
-            }}
-          >
-            {s.label}
-          </Link>
-        );
-      })}
+    <div style={{ display: "flex", gap: 8, padding: "10px 0" }}>
+      <Link
+        href="/livescore"
+        style={{
+          textDecoration: "none",
+          padding: "6px 18px",
+          borderRadius: 20,
+          fontSize: 14,
+          fontWeight: 600,
+          background: active ? "#ffffff" : "transparent",
+          color: active ? "#111" : "rgba(255,255,255,0.45)",
+          border: active ? "none" : "1px solid rgba(255,255,255,0.12)",
+          transition: "all 0.12s",
+        }}
+      >
+        Football
+      </Link>
     </div>
   );
 }

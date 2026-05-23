@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { WC_YEARS, tournamentImg, seasonId, getWCRounds } from "@/lib/worldcup";
-import { WCMatchesClient } from "./WCMatchesClient";
+import { Suspense } from "react";
+import { WC_YEARS } from "@/lib/worldcup";
+import { getESPNWCFixturesByYear, espnFmtDate, espnFmtTime, type EspnEvent } from "@/lib/espn";
+
+const WC_LOGO = "https://a.espncdn.com/i/leaguelogos/soccer/500/4.png";
 import { WCTabNav } from "./WCTabNav";
 
 type Props = { params: Promise<{ year: string }>; children: React.ReactNode };
@@ -10,10 +13,8 @@ const STAGES_DEFAULT = ["Group stage", "R16", "QF", "SF", "3rd", "Final"];
 
 export default async function WorldCupYearLayout({ params, children }: Props) {
   const { year } = await params;
-  const sid = seasonId(year);
 
   const stages = year === "2026" ? STAGES_2026 : STAGES_DEFAULT;
-  const rounds = getWCRounds(year);
 
   return (
     <>
@@ -36,7 +37,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
             {/* Trophy */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={tournamentImg()}
+              src={WC_LOGO}
               alt="World Cup"
               width={70}
               height={70}
@@ -50,7 +51,7 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
                 FIFA World Cup {year}
               </h1>
               <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: "5px 0 0", fontWeight: 500 }}>
-                {sid ? "Group stage & match results" : "Historical data"}
+                Group stage &amp; match results
               </p>
             </div>
           </div>
@@ -99,13 +100,9 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
       {/* ── TWO-COLUMN BODY ── */}
       <div className="panel-body">
         {/* Left: Matches panel */}
-        {sid ? (
-          <WCMatchesClient seasonId={sid} year={year} rounds={rounds} />
-        ) : (
-          <div style={{ background: "#161616", borderRadius: 12, border: "1px solid #1e1e1e", padding: "2rem", textAlign: "center", color: "#444", fontSize: 13 }}>
-            Match data unavailable for {year}
-          </div>
-        )}
+        <Suspense fallback={<MatchesPanelSkeleton />}>
+          <EspnWCMatchesPanel year={year} />
+        </Suspense>
 
         {/* Right: Tabs + content */}
         <div>
@@ -118,5 +115,88 @@ export default async function WorldCupYearLayout({ params, children }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+// ── Left-panel server component ──────────────────────────────────────────────
+
+async function EspnWCMatchesPanel({ year }: { year: string }) {
+  const events = await getESPNWCFixturesByYear(year);
+
+  if (events.length === 0) {
+    return (
+      <div style={{ background: "#161616", borderRadius: 12, border: "1px solid #1e1e1e", padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+        {year === "2026" ? "Tournament begins June 11, 2026" : `Match data unavailable for ${year}`}
+      </div>
+    );
+  }
+
+  const nowTs = Date.now() / 1000;
+  const lastTs = events[events.length - 1]?.startTimestamp ?? 0;
+  const isPast = nowTs > lastTs;
+  const sorted = isPast
+    ? [...events].sort((a, b) => b.startTimestamp - a.startTimestamp)
+    : [...events].sort((a, b) => a.startTimestamp - b.startTimestamp);
+
+  return (
+    <div style={{ background: "#161616", borderRadius: 12, border: "1px solid #1e1e1e", overflow: "hidden" }}>
+      <div style={{ padding: "11px 14px", borderBottom: "1px solid #1e1e1e" }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>Matches</span>
+      </div>
+      <div style={{ maxHeight: "calc(100vh - 360px)", overflowY: "auto" }}>
+        {sorted.map((e: EspnEvent) => <WCMatchRow key={e.id} event={e} />)}
+      </div>
+    </div>
+  );
+}
+
+function WCMatchRow({ event: e }: { event: EspnEvent }) {
+  const isFt = e.status === "finished";
+  const isLive = e.status === "live";
+  const hs = e.homeScore ?? 0;
+  const as_ = e.awayScore ?? 0;
+  const homeWon = isFt && hs > as_;
+  const awayWon = isFt && as_ > hs;
+  return (
+    <div style={{ padding: "9px 12px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "grid", gridTemplateColumns: "1fr 48px 1fr", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={e.homeTeam.logo} alt="" width={18} height={18} style={{ objectFit: "contain", flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: homeWon ? 700 : 500, color: isFt && !homeWon ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {e.homeTeam.abbreviation || e.homeTeam.name}
+        </span>
+      </div>
+      <div style={{ textAlign: "center" }}>
+        {isFt || isLive
+          ? <span style={{ fontSize: 12, fontWeight: 800, color: isLive ? "#22c55e" : "#fff" }}>{hs}–{as_}</span>
+          : <span style={{ fontSize: 10, color: "#818CF8", fontWeight: 700 }}>{espnFmtTime(e.startTimestamp)}</span>
+        }
+        {isFt && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", fontWeight: 600, marginTop: 1 }}>FT</div>}
+        {isLive && <div style={{ fontSize: 8, color: "#22c55e", fontWeight: 600, marginTop: 1 }}>LIVE</div>}
+        {!isFt && !isLive && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.2)", marginTop: 1 }}>{espnFmtDate(e.startTimestamp)}</div>}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden", justifyContent: "flex-end" }}>
+        <span style={{ fontSize: 11, fontWeight: awayWon ? 700 : 500, color: isFt && !awayWon ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.82)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>
+          {e.awayTeam.abbreviation || e.awayTeam.name}
+        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={e.awayTeam.logo} alt="" width={18} height={18} style={{ objectFit: "contain", flexShrink: 0 }} />
+      </div>
+    </div>
+  );
+}
+
+function MatchesPanelSkeleton() {
+  return (
+    <div style={{ background: "#161616", borderRadius: 12, border: "1px solid #1e1e1e", overflow: "hidden" }}>
+      <div style={{ padding: "11px 14px", borderBottom: "1px solid #1e1e1e" }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>Matches</span>
+      </div>
+      <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: 8 }}>
+        {[...Array(6)].map((_, i) => (
+          <div key={i} style={{ height: 34, borderRadius: 6, background: "rgba(255,255,255,0.05)" }} />
+        ))}
+      </div>
+    </div>
   );
 }

@@ -25,6 +25,33 @@ const ALLOWED_REQUEST_ORIGINS = new Set([
   "https://soccer-api.anime-proxy.workers.dev",
 ]);
 
+/** Reverse a proxied relative URL back to the original stream URL for verification. */
+export function getOriginalStreamUrl(proxied: string): string | null {
+  // /api/hls?url=https://...
+  if (proxied.startsWith("/api/hls?")) {
+    try {
+      return new URLSearchParams(proxied.slice("/api/hls?".length)).get("url");
+    } catch { return null; }
+  }
+  // /api/hls/source/path/to/stream.m3u8?query
+  if (proxied.startsWith("/api/hls/")) {
+    try {
+      const rest = proxied.slice("/api/hls/".length);
+      const slash = rest.indexOf("/");
+      if (slash === -1) return null;
+      const source = rest.slice(0, slash);
+      const pathAndQuery = rest.slice(slash); // e.g. "/live/stream.m3u8?token=x"
+      const parsed = new URL("https://placeholder.invalid" + pathAndQuery);
+      const segments = parsed.pathname.slice(1).split("/").filter(Boolean);
+      const target = getStreamTargetUrl(source, segments, parsed.search);
+      return target?.toString() ?? null;
+    } catch { return null; }
+  }
+  // Already absolute
+  if (/^https?:\/\//i.test(proxied)) return proxied;
+  return null;
+}
+
 export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost") {
   const streamUrl = new URL(target);
   const source = getStreamSource(streamUrl);
@@ -35,14 +62,10 @@ export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost"
     return url.pathname + url.search;
   }
 
-  // For unknown cachefly subdomains route through the ?url= proxy endpoint
-  if (isCacheflyHost(streamUrl)) {
-    const url = new URL("/api/hls", requestUrl);
-    url.searchParams.set("url", target);
-    return url.pathname + url.search;
-  }
-
-  return target;
+  // Proxy ALL other HLS streams — ensures correct referer/origin headers reach the CDN
+  const url = new URL("/api/hls", requestUrl);
+  url.searchParams.set("url", target);
+  return url.pathname + url.search;
 }
 
 export function getStreamTargetUrl(source: string, path: string[], search: string) {
@@ -291,6 +314,33 @@ function rewritePlaylist(playlist: string, playlistUrl: URL, requestUrl: string)
       }
 
       return getProxiedHlsUrl(mediaUrl.toString(), requestUrl);
+    })
+    .join("\n");
+}
+
+/**
+ * Like rewritePlaylist but rewrites ALL http/https media lines — not just
+ * known cachefly hosts. Used by the /api/hls?url= flat proxy so that
+ * non-cachefly CDN segments are also routed through our proxy and receive
+ * the correct Referer/Origin headers instead of being fetched raw by the browser.
+ */
+export function rewritePlaylistAny(
+  playlist: string,
+  playlistUrl: URL,
+  requestUrl: string,
+): string {
+  return playlist
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) return line;
+      try {
+        const mediaUrl = new URL(trimmed, playlistUrl);
+        if (mediaUrl.protocol !== "https:" && mediaUrl.protocol !== "http:") return line;
+        return getProxiedHlsUrl(mediaUrl.toString(), requestUrl);
+      } catch {
+        return line;
+      }
     })
     .join("\n");
 }

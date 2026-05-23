@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
-import { getESPNWCStandingsByYear, type EspnGroup, type EspnStandingRow } from "@/lib/espn";
-import { getWCStandings, seasonId, type WCGroup, type WCStandingRow } from "@/lib/worldcup";
+import { getESPNWCStandingsByYear, getWCDateRange, type EspnGroup, type EspnStandingRow } from "@/lib/espn";
 
 type Props = { params: Promise<{ year: string }>; searchParams: Promise<{ g?: string }> };
 
@@ -9,10 +8,8 @@ const COL = "26px 24px 1fr 30px 30px 30px 30px 42px 46px 36px";
 export default async function WCStandingsPage({ params, searchParams }: Props) {
   const { year } = await params;
   const { g } = await searchParams;
-  const sid = seasonId(year);
 
-  // 2026+: ESPN
-  if (parseInt(year) >= 2026) {
+  if (getWCDateRange(year)) {
     const groups = await getESPNWCStandingsByYear(year);
     if (groups.length === 0) return <Empty label={year === "2026" ? "Standings will appear when the tournament begins June 11, 2026" : `No standings data for ${year}`} />;
     const activeIdx = Math.min(Math.max(parseInt(g ?? "0"), 0), groups.length - 1);
@@ -20,26 +17,11 @@ export default async function WCStandingsPage({ params, searchParams }: Props) {
     return (
       <div style={{ padding: "1.25rem" }}>
         <GroupTabs groups={groups.map(gr => gr.name)} activeIdx={activeIdx} />
-        <div style={{ borderRadius: 12, border: "1px solid rgba(67,56,202,0.25)", overflow: "hidden" }}>
-          <EspnHeader />
-          {active.rows.map((row, i) => <EspnRow key={row.team.id} row={row} i={i} total={active.rows.length} />)}
-        </div>
-      </div>
-    );
-  }
-
-  // Historical: Sofascore
-  if (sid) {
-    const groups = await getWCStandings(sid);
-    if (groups.length === 0) return <Empty label={`Standings not available for ${year}`} />;
-    const activeIdx = Math.min(Math.max(parseInt(g ?? "0"), 0), groups.length - 1);
-    const active = groups[activeIdx];
-    return (
-      <div style={{ padding: "1.25rem" }}>
-        <GroupTabs groups={groups.map(gr => gr.name)} activeIdx={activeIdx} />
-        <div style={{ borderRadius: 12, border: "1px solid rgba(67,56,202,0.25)", overflow: "hidden" }}>
-          <EspnHeader />
-          {active.rows.map((row, i) => <WCRow key={row.team.id} row={row} i={i} total={active.rows.length} />)}
+        <div className="table-scroll" style={{ borderRadius: 12, border: "1px solid rgba(67,56,202,0.25)", overflow: "hidden" }}>
+          <div style={{ minWidth: 480 }}>
+            <EspnHeader />
+            {active.rows.map((row, i) => <EspnRow key={row.team.id} row={row} i={i} total={active.rows.length} />)}
+          </div>
         </div>
       </div>
     );
@@ -100,29 +82,6 @@ function EspnRow({ row, i, total }: { row: EspnStandingRow; i: number; total: nu
       <span style={{ fontSize: 12, textAlign: "center", color: "#f87171" }}>{row.losses}</span>
       <span style={{ fontSize: 12, textAlign: "center", color: gd > 0 ? "#22c55e" : gd < 0 ? "#f87171" : "rgba(255,255,255,0.38)", fontWeight: 600 }}>{gd > 0 ? `+${gd}` : gd}</span>
       <span style={{ fontSize: 11, textAlign: "center", color: "rgba(255,255,255,0.22)" }}>{row.goalsFor}:{row.goalsAgainst}</span>
-      <span style={{ fontSize: 15, textAlign: "center", fontWeight: 900, color: "#fff" }}>{row.points}</span>
-    </div>
-  );
-}
-
-function WCRow({ row, i, total }: { row: WCStandingRow; i: number; total: number }) {
-  const gd = row.scoresFor - row.scoresAgainst;
-  const isThrough = row.descriptions
-    ? row.descriptions.some(d => d.type === "qualified" || d.text.toLowerCase().includes("advance"))
-    : row.position <= 2;
-  const sfBase = "https://api.sofascore.com/api/v1";
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: COL, gap: 4, padding: "9px 14px", alignItems: "center", borderBottom: i < total - 1 ? "1px solid rgba(67,56,202,0.12)" : "none", borderLeft: isThrough ? "3px solid #22c55e" : "3px solid transparent", background: "rgba(15,15,35,0.4)" }}>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.28)" }}>{row.position}</span>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`${sfBase}/team/${row.team.id}/image`} alt="" width={22} height={22} style={{ objectFit: "contain" }} />
-      <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{row.team.name}</span>
-      <span style={{ fontSize: 12, textAlign: "center", color: "rgba(255,255,255,0.38)" }}>{row.matches}</span>
-      <span style={{ fontSize: 12, textAlign: "center", color: "#22c55e", fontWeight: 700 }}>{row.wins}</span>
-      <span style={{ fontSize: 12, textAlign: "center", color: "rgba(255,255,255,0.38)" }}>{row.draws}</span>
-      <span style={{ fontSize: 12, textAlign: "center", color: "#f87171" }}>{row.losses}</span>
-      <span style={{ fontSize: 12, textAlign: "center", color: gd > 0 ? "#22c55e" : gd < 0 ? "#f87171" : "rgba(255,255,255,0.38)", fontWeight: 600 }}>{gd > 0 ? `+${gd}` : gd}</span>
-      <span style={{ fontSize: 11, textAlign: "center", color: "rgba(255,255,255,0.22)" }}>{row.scoresFor}:{row.scoresAgainst}</span>
       <span style={{ fontSize: 15, textAlign: "center", fontWeight: 900, color: "#fff" }}>{row.points}</span>
     </div>
   );

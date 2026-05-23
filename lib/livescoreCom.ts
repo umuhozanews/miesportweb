@@ -1,6 +1,6 @@
 import { unstable_cache as cache } from "next/cache";
 
-const BASE = "https://mev-api.live-lsm.ls-g.net";
+const BASE = "https://prod-public-api.livescore.com";
 const EAT_OFFSET = 2; // Rwanda / East Africa Time = UTC+2
 
 const HEADERS = {
@@ -104,8 +104,9 @@ async function lsFetch(date: string, sport: LsSport = "soccer"): Promise<{ Stage
     const res = await fetch(`${BASE}/v1/api/app/date/${sport}/${d}/${EAT_OFFSET}`, {
       headers: HEADERS,
       cache: "no-store",
-      // CF Workers: cache livescore data at the edge for 30 seconds
-      cf: { cacheTtl: 30, cacheEverything: true },
+      signal: AbortSignal.timeout(5000),
+      // CF network-level cache: all Worker instances share the response
+      cf: { cacheTtl: 60, cacheEverything: true },
     } as CFRequestInit as RequestInit);
     if (!res.ok) return null;
     return res.json() as Promise<{ Stages: LsStage[] }>;
@@ -133,10 +134,13 @@ async function lsFetchRaw<T>(path: string): Promise<T | null> {
 export const getLsStages = cache(
   async (date: string, sport: LsSport = "soccer"): Promise<LsStage[]> => {
     const d = await lsFetch(date, sport);
-    return d?.Stages ?? [];
+    const stages = d?.Stages ?? [];
+    // Cap at 40 stages to limit RSC render cost and JSON processing overhead
+    return stages.slice(0, 40);
   },
   ["ls-stages"],
-  { revalidate: 30 },
+  // 60s: halves cache-miss CPU hits while still keeping scores fresh
+  { revalidate: 60 },
 );
 
 /* ─── Date-window helpers (comp endpoints return 404; these use date API) ─── */

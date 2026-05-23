@@ -1,16 +1,14 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getLsSearch, lsTeamImg, lsCompImg } from "@/lib/livescoreCom";
-import { TeamImg, CompImg } from "@/app/livescore/TeamImg";
+import { espnSearchTeams } from "@/lib/espn";
+import { TeamImg } from "@/app/livescore/TeamImg";
 
 type Props = { searchParams: Promise<{ q?: string }> };
 
 export default async function SearchPage({ searchParams }: Props) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const { teams, comps } = query ? await getLsSearch(query) : { teams: [], comps: [] };
-
-  const hasResults = teams.length > 0 || comps.length > 0;
+  const teams = query ? await espnSearchTeams(query) : [];
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: "1.5rem 1rem" }}>
@@ -23,7 +21,7 @@ export default async function SearchPage({ searchParams }: Props) {
           <input
             name="q"
             defaultValue={query}
-            placeholder="Search teams, leagues…"
+            placeholder="Search teams…"
             autoFocus
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e8e8e8", fontSize: 14 }}
           />
@@ -38,76 +36,47 @@ export default async function SearchPage({ searchParams }: Props) {
       </form>
 
       {!query && (
-        <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>Enter a team or league name above.</p>
+        <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>Enter a team name above.</p>
       )}
-      {query && !hasResults && (
+      {query && teams.length === 0 && (
         <p style={{ color: "#3a3a3a", textAlign: "center", padding: "3rem 0", fontSize: 13 }}>No results for &ldquo;{query}&rdquo;</p>
       )}
 
       {teams.length > 0 && (
-        <ResultSection title="Teams">
-          {teams.map((t) => (
-            <Link key={t.Sid} href={`/livescore/team/${t.Sid}`} style={{ textDecoration: "none" }}>
-              <ResultRow
-                imgSrc={lsTeamImg(t.Img ?? "", t.Sid)}
-                name={t.Nm}
-                sub={t.Cnm ?? ""}
-              />
-            </Link>
-          ))}
-        </ResultSection>
+        <section style={{ marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#3a3a3a", letterSpacing: 1.5, textTransform: "uppercase" }}>
+              Teams
+            </span>
+            <div style={{ flex: 1, height: 1, background: "#1e1e1e" }} />
+          </div>
+          <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
+            {teams.map((t) => (
+              <Link
+                key={`${t.league}-${t.id}`}
+                href={`/livescore/team/espn/${t.league}/${t.id}`}
+                style={{ textDecoration: "none" }}
+              >
+                <div
+                  className="search-row"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 13,
+                    padding: "11px 15px", borderBottom: "1px solid #181818",
+                    background: "#1c1c1c", cursor: "pointer",
+                  }}
+                >
+                  <TeamImg src={t.logo} name={t.name} size={32} radius="50%" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: "#e0e0e0" }}>{t.name}</div>
+                    <div style={{ fontSize: 11, color: "#484848", marginTop: 1 }}>{t.leagueName}</div>
+                  </div>
+                  <span style={{ color: "#2a2a2a", fontSize: 16 }}>›</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
-
-      {comps.length > 0 && (
-        <ResultSection title="Leagues &amp; Cups">
-          {comps.map((c) => (
-            <Link key={c.Sid} href={`/livescore/tournament/${c.CompId ?? c.Sid}/${c.Sid}`} style={{ textDecoration: "none" }}>
-              <ResultRow
-                imgSrc={lsCompImg(c.badgeUrl ?? "")}
-                name={c.Nm}
-                sub={c.Cnm ?? ""}
-                square
-              />
-            </Link>
-          ))}
-        </ResultSection>
-      )}
-    </div>
-  );
-}
-
-function ResultSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section style={{ marginBottom: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, fontWeight: 800, color: "#3a3a3a", letterSpacing: 1.5, textTransform: "uppercase" }}
-          dangerouslySetInnerHTML={{ __html: title }}
-        />
-        <div style={{ flex: 1, height: 1, background: "#1e1e1e" }} />
-      </div>
-      <div style={{ borderRadius: 10, border: "1px solid #1e1e1e", overflow: "hidden" }}>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function ResultRow({ imgSrc, name, sub, square }: { imgSrc: string; name: string; sub: string; square?: boolean }) {
-  return (
-    <div
-      className="search-row"
-      style={{ display: "flex", alignItems: "center", gap: 13, padding: "11px 15px", borderBottom: "1px solid #181818", background: "#1c1c1c", cursor: "pointer" }}
-    >
-      {square ? (
-        <CompImg src={imgSrc} size={32} radius={6} />
-      ) : (
-        <TeamImg src={imgSrc} name={name} size={32} radius="50%" />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, color: "#e0e0e0" }}>{name}</div>
-        {sub && <div style={{ fontSize: 11, color: "#484848", marginTop: 1 }}>{sub}</div>}
-      </div>
-      <span style={{ color: "#2a2a2a", fontSize: 16 }}>›</span>
     </div>
   );
 }

@@ -9,8 +9,6 @@ export function WCTabNav({ year }: { year: string }) {
     { href: base, label: "Overview" },
     { href: `${base}/standings`, label: "Standings" },
     { href: `${base}/knockout`, label: "Knockout" },
-    { href: `${base}/stats`, label: "Stats" },
-    { href: `${base}/media`, label: "Media" },
   ];
   return (
     <div style={{ display: "flex", padding: "0 1rem" }}>

@@ -30,7 +30,12 @@ function getStvSlug(match: ScrapedMatch): string {
 }
 
 export default async function Home() {
-  const stvResult = await getCachedStvHomeMatches();
+  let stvResult;
+  try {
+    stvResult = await getCachedStvHomeMatches();
+  } catch {
+    stvResult = { matches: [] as ScrapedMatch[] };
+  }
 
   const now = new Date();
   const stvRaw: ScrapedMatch[] = stvResult.matches;
@@ -45,9 +50,6 @@ export default async function Home() {
     <>
       {/* ── HERO ── */}
       <section className="lp-hero">
-        <div className="lp-grid-bg" style={{ position: "absolute", inset: 0, opacity: 0.55 }} />
-        <div className="lp-hero-orb-tr" />
-        <div className="lp-hero-orb-bl" />
         <div className="lp-hero-inner">
           {stvCount > 0 && (
             <div className="lp-hero-badge">
@@ -191,7 +193,7 @@ function STVMatchCard({ match, watchSlug }: { match: ScrapedMatch; watchSlug: st
   return (
     <div className={`mc-card${isLive ? " mc-card-live" : ""}`}>
       <div className="mc-top">
-        <span className="mc-competition">Soccer TV HD</span>
+        <span className="mc-competition">MIE SPORT</span>
         {isLive ? (
           <span className="mc-live-pill">
             <span className="dot-b" />LIVE

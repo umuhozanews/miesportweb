@@ -236,6 +236,128 @@ a { color: inherit; }
 /* Standings / stat tables — horizontal scroll */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* WC match grid — 2 cols desktop, 1 col mobile */
+.wc-match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* WC stats grid — 2 cols desktop, 1 col mobile */
+.wc-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+/* ════════════════ TICKER BAR ════════════════ */
+
+/* Inner container — mobile-first: two stacked rows */
+.ticker-bar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 8px 1rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Row 1: brand (left) + countdown (right) */
+.ticker-bar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Countdown digits container */
+.ticker-bar-countdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Digit number — compact on mobile */
+.ticker-digit-val {
+  font-size: 15px;
+}
+
+/* Digit label (Days / Hrs / etc.) */
+.ticker-digit-label {
+  font-size: 7px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Colon separator */
+.ticker-sep { font-size: 13px; }
+
+/* Row 2: scrolling ticker — always full width of its row */
+.ticker-bar-scroll {
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 5px;
+}
+
+/* The moving track */
+.ticker-track {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  white-space: nowrap;
+  animation: ticker-scroll 40s linear infinite;
+  will-change: transform;
+}
+
+.ticker-track:hover { animation-play-state: paused; }
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Digit flip animation */
+@keyframes digit-flip {
+  0%   { transform: scaleY(1);    opacity: 1;   }
+  15%  { transform: scaleY(0.6);  opacity: 0.4; }
+  30%  { transform: scaleY(1.08); opacity: 1;   }
+  50%  { transform: scaleY(0.96); }
+  100% { transform: scaleY(1);    opacity: 1;   }
+}
+
+.digit-flip {
+  animation: digit-flip 0.32s ease-out;
+  display: inline-block;
+}
+
+/* ── Desktop: single row — ticker sits alongside brand+countdown ── */
+@media (min-width: 640px) {
+  .ticker-bar-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 1.5rem;
+    gap: 16px;
+  }
+
+  .ticker-bar-top {
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .ticker-bar-scroll {
+    flex: 1;
+    min-width: 0;
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .ticker-digit-val  { font-size: clamp(18px, 3.5vw, 26px); }
+  .ticker-digit-label { font-size: 8px; }
+  .ticker-sep        { font-size: clamp(15px, 3vw, 22px); }
+}
+
 /* Hero section inner padding */
 .hero-inner { padding: 1.75rem 1.5rem 1.25rem; }
 
@@ -333,6 +455,10 @@ a { color: inherit; }
 
   /* ── Two-column grid: stack ── */
   .two-col-grid { grid-template-columns: 1fr !important; gap: 0.75rem; }
+
+  /* ── WC match/stats grids: stack on mobile ── */
+  .wc-match-grid { grid-template-columns: 1fr !important; }
+  .wc-stats-grid { grid-template-columns: 1fr !important; }
 
   /* ── Hero section: compact ── */
   .hero-inner { padding: 1rem 0.875rem 0.75rem; }
@@ -723,9 +849,10 @@ a { color: inherit; }
 
 @media (max-width: 767px) {
   .lp-hdr-desktop-nav { display: none !important; }
-  .lp-hdr-logo-text   { display: none !important; }
   .lp-hdr-live-badge  { display: none !important; }
   .lp-hdr-menu-btn    { display: flex !important; }
+  .lp-hdr-logo-text div:first-child { font-size: 15px !important; }
+  .lp-hdr-logo-text div:last-child  { font-size: 8px !important; }
 }
 
 /* ── Destination cards (homepage quick nav) ── */
@@ -778,7 +905,7 @@ a { color: inherit; }
   border-bottom: 1px solid var(--lp-border);
   background-image: url('/foot.png');
   background-size: cover;
-  background-position: center 30%;
+  background-position: center 45%;
   background-repeat: no-repeat;
 }
 .lp-hero::before {
@@ -787,9 +914,9 @@ a { color: inherit; }
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(4, 10, 24, 0.72) 0%,
-    rgba(4, 10, 24, 0.55) 40%,
-    rgba(4, 10, 24, 0.82) 100%
+    rgba(4, 10, 24, 0.45) 0%,
+    rgba(4, 10, 24, 0.25) 35%,
+    rgba(4, 10, 24, 0.70) 100%
   );
   z-index: 0;
 }

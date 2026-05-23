@@ -1,47 +1,97 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function StreamPlayer({ slug, matchTitle }: { slug: string; matchTitle: string }) {
-  const [servers, setServers] = useState<string[] | null>(null);
+export function StreamPlayer({
+  slug,
+  matchTitle,
+  initialServers,
+}: {
+  slug: string;
+  matchTitle: string;
+  initialServers?: string[];
+}) {
+  const [servers, setServers] = useState<string[] | null>(
+    initialServers !== undefined ? initialServers : null,
+  );
   const [active, setActive] = useState(0);
   const [iframeKey, setIframeKey] = useState(0);
   const userPickedRef = useRef(false);
   const prevSlugRef = useRef(slug);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRetry = () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  };
 
   // Reset when slug changes
   if (prevSlugRef.current !== slug) {
     prevSlugRef.current = slug;
-    setServers(null);
+    setServers(initialServers !== undefined ? initialServers : null);
     setActive(0);
     userPickedRef.current = false;
   }
 
+  const fetchServers = useCallback((signal: AbortSignal) => {
+    fetch(`/api/stream-servers?slug=${encodeURIComponent(slug)}`, { signal })
+      .then((r) => r.json())
+      .then((d) => {
+        if (signal.aborted) return;
+        const list: string[] = d.servers ?? [];
+        setServers(list);
+        // If still no streams, retry in 20s — the match may not have kicked off yet
+        if (list.length === 0) {
+          retryTimerRef.current = setTimeout(() => {
+            if (!signal.aborted) fetchServers(signal);
+          }, 20_000);
+        }
+      })
+      .catch(() => {
+        if (!signal.aborted) setServers([]);
+      });
+  }, [slug]);
+
   useEffect(() => {
+    // When server pre-resolved streams and found some, use them as-is.
+    // If server returned empty (match not started yet), still poll client-side.
+    if (initialServers !== undefined && initialServers.length > 0) return;
+
     const ctrl = new AbortController();
     setServers(null);
     userPickedRef.current = false;
+    clearRetry();
 
-    fetch(`/api/stream-servers?slug=${encodeURIComponent(slug)}`, { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!ctrl.signal.aborted) setServers(d.servers ?? []);
-      })
-      .catch(() => {
-        if (!ctrl.signal.aborted) setServers([]);
-      });
+    fetchServers(ctrl.signal);
 
-    return () => ctrl.abort();
-  }, [slug]);
+    return () => {
+      ctrl.abort();
+      clearRetry();
+    };
+  }, [slug, initialServers, fetchServers]);
+
+  // Auto-advance to next server when the embed reports a fatal HLS error
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "hls-error" && !userPickedRef.current && servers && servers.length > 1) {
+        setActive((a) => {
+          const next = (a + 1) % servers.length;
+          setIframeKey((k) => k + 1);
+          return next;
+        });
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [servers]);
 
   const loading = servers === null;
   const empty = !loading && servers.length === 0;
   const rawUrl = servers?.[active] ?? null;
 
-  // Route HLS streams through the embed player
+  // Route HLS streams through the embed player (/api/hls/ and /api/hls? are both our proxy formats)
   const isHls = rawUrl
-    ? rawUrl.startsWith("/api/hls/") || /\.m3u8(\?|$)/i.test(rawUrl)
+    ? rawUrl.startsWith("/api/hls") || /\.m3u8(\?|$)/i.test(rawUrl)
     : false;
   const frameUrl = rawUrl
     ? isHls

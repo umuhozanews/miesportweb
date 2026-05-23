@@ -8,6 +8,9 @@ const MEDIA_URL_PATTERN =
   /https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mpd|mp4)(?:\?[^\s"'<>\\]*)?/gi;
 const EMBED_PATTERN =
   /<(?:iframe|source|video-js|video|embed)\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;
+// HLS/DASH URLs assigned to JS variables — covers all common player variable names
+const JS_STREAM_PATTERN =
+  /(?:file|source|src|url|stream|hls|hlsSrc|m3u8|m3u8Url|streamUrl|playlist|media|video|path)\s*[=:]\s*["']([^"']{10,}(?:\.m3u8|\.mpd)(?:\?[^"']*)?)['"]/gi;
 
 // Realistic browser UAs — rotate every 3 minutes so each cache window looks different
 const UA_POOL = [
@@ -195,33 +198,41 @@ export const getCachedStvHomeMatches = cache(
 );
 
 export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
+  const emptyResult = (widgetId = FALLBACK_WIDGET_ID, bootUrl = ""): SoccerTvHdScrapeResult => ({
+    sourceUrl: HOME_URL,
+    widgetId,
+    bootUrl,
+    scrapedAt: new Date().toISOString(),
+    widgetTitle: "Upcoming Top Matches",
+    settings: {
+      layout: null, groupBy: null, showPastEvents: false,
+      numberOfEventsInList: null, eventClickAction: null,
+      enableEventLinking: null, displayDateFormat: null,
+      displayTimeFormat: null, inLocalTimeZone: null,
+    },
+    matches: [],
+  });
+
   let widgetId: string;
   try {
-    // Short timeout — on CF Workers the homepage is IP-blocked so we fail fast
     widgetId = await getHomepageWidgetId(2_000);
   } catch {
     widgetId = FALLBACK_WIDGET_ID;
   }
+
   const bootUrl = getBootUrl(widgetId);
-  const boot = await fetchJson<ElfsightBootResponse>(bootUrl);
+  let boot: ElfsightBootResponse;
+  try {
+    boot = await fetchJson<ElfsightBootResponse>(bootUrl);
+  } catch {
+    return emptyResult(widgetId, bootUrl);
+  }
+
   const widget = boot.data?.widgets?.[widgetId];
   const settings = widget?.data?.settings;
 
   if (!settings?.events) {
-    return {
-      sourceUrl: HOME_URL,
-      widgetId,
-      bootUrl,
-      scrapedAt: new Date().toISOString(),
-      widgetTitle: "Upcoming Top Matches",
-      settings: {
-        layout: null, groupBy: null, showPastEvents: false,
-        numberOfEventsInList: null, eventClickAction: null,
-        enableEventLinking: null, displayDateFormat: null,
-        displayTimeFormat: null, inLocalTimeZone: null,
-      },
-      matches: [],
-    };
+    return emptyResult(widgetId, bootUrl);
   }
 
   const now = new Date();
@@ -258,8 +269,8 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
 // The slug is part of the cache key so each match gets its own entry.
 export const getCachedStvStream = cache(
   async (slug: string): Promise<SoccerTvHdStreamResult> => scrapeSoccerTvHdStream(slug),
-  ["stv-stream-v3"],
-  { revalidate: 300 }, // 5 min
+  ["stv-stream-v5"],
+  { revalidate: 120 }, // 2 min — keep tokens fresh, catch new streams faster
 );
 
 export async function scrapeSoccerTvHdStream(
@@ -269,9 +280,31 @@ export async function scrapeSoccerTvHdStream(
 
   // Fetch the match page — 5s timeout, fail fast if CDN is blocking
   const html = await fetchText(sourceUrl, 5_000);
-  // Extract embed/HLS/DASH URLs directly from HTML — skip discoverPlaylistChildren
-  // because CF Workers IPs are blocked by CacheFly CDN (always returns 403, wastes 2-3s)
-  const streams = dedupeStreams(extractMediaResources(html, sourceUrl));
+  const rawStreams = dedupeStreams(extractMediaResources(html, sourceUrl));
+
+  // soccertvhd.com match pages embed relay pages (e.g. /yalla-shoot-yalla-live-football/?v=...)
+  // that contain the actual HLS player JS with the .m3u8 URL. Drill one level deeper.
+  const stvEmbeds = rawStreams
+    .filter((s) => s.type === "embed" && s.url.startsWith(SITE_ORIGIN + "/"))
+    .slice(0, 4);
+
+  const deepHls: StreamResource[] = [];
+  if (stvEmbeds.length > 0) {
+    const settled = await Promise.allSettled(
+      stvEmbeds.map(async (embed) => {
+        const embedHtml = await fetchText(embed.url, 4_000);
+        return extractMediaResources(embedHtml, embed.url).filter(
+          (s) => s.type === "hls" || s.type === "dash",
+        );
+      }),
+    );
+    for (const r of settled) {
+      if (r.status === "fulfilled") deepHls.push(...r.value);
+    }
+  }
+
+  // Deep HLS/DASH streams first (most playable), then raw page results
+  const streams = dedupeStreams([...deepHls, ...rawStreams]);
 
   return {
     sourceUrl,
@@ -490,12 +523,20 @@ function toSoccerTvHdPostUrl(input: string) {
 function extractMediaResources(html: string, pageUrl: string): StreamResource[] {
   const urls = new Set<string>();
 
+  // 1. Direct media URLs in text/attributes (e.g. bare .m3u8 links)
   for (const match of html.matchAll(MEDIA_URL_PATTERN)) {
     urls.add(decodeHtml(match[0]));
   }
 
+  // 2. iframe/video/source/embed src attributes
   for (const match of html.matchAll(EMBED_PATTERN)) {
-    urls.add(new URL(decodeHtml(match[1]), pageUrl).toString());
+    try { urls.add(new URL(decodeHtml(match[1]), pageUrl).toString()); } catch { /* skip */ }
+  }
+
+  // 3. JavaScript variable assignments containing HLS/DASH URLs
+  for (const match of html.matchAll(JS_STREAM_PATTERN)) {
+    const u = decodeHtml(match[1]);
+    if (/^https?:\/\//i.test(u)) urls.add(u);
   }
 
   return [...urls].map((url) => ({
