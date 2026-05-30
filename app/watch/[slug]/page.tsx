@@ -131,73 +131,94 @@ export default async function WatchPage({ params }: PageProps) {
   const initialServers = await resolveInitialServers(slug);
 
   return (
-    <main style={{
-      maxWidth: 1000,
-      width: "100%",
-      margin: "0 auto",
-      padding: "1rem 1rem 3rem",
-      display: "flex",
-      flexDirection: "column",
-      gap: 14,
-    }}>
+    <div className="ge-watch-shell">
+      {/* Radial floodlight glow — pure atmosphere, no content */}
+      <div className="ge-floodlight" aria-hidden="true" />
 
-      {/* Top row: match title + back */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span className="dot-live-red" style={{ flexShrink: 0 }} />
-          <h1 style={{
-            margin: 0,
-            fontSize: "clamp(0.95rem, 2.5vw, 1.25rem)",
-            fontWeight: 900,
-            color: "#fff",
-            letterSpacing: 0.2,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            fontFamily: "var(--font-display)",
-            textTransform: "uppercase",
-          }}>
-            {homeTeam && awayTeam ? (
-              <>{homeTeam} <span style={{ color: "#ff1744" }}>vs</span> {awayTeam}</>
-            ) : matchTitle}
-          </h1>
-          <span className="mc-live-pill" style={{ flexShrink: 0 }}>
-            <span className="dot-b" />LIVE
-          </span>
+      <main style={{
+        position: "relative",
+        zIndex: 1,
+        maxWidth: 1280,
+        width: "100%",
+        margin: "0 auto",
+        padding: "clamp(1.25rem, 4vw, 2rem) 20px clamp(2rem, 5vw, 4rem)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+      }}>
+
+        {/* ── Hero: match identity ─────────────────────────────────── */}
+        <div style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }}>
+
+            {/* LIVE chip + sport label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className="ge-live-chip">
+                <span className="ge-live-dot" />
+                Live
+              </span>
+              <span style={{
+                fontFamily: "var(--font-hanken), 'Hanken Grotesk', sans-serif",
+                fontSize: 13,
+                color: "var(--ge-on-surface-muted)",
+                fontWeight: 600,
+              }}>
+                Football · HD
+              </span>
+            </div>
+
+            {/* Match title — Anton, uppercase, stadium-sized */}
+            <h1 className="ge-match-title">
+              {homeTeam && awayTeam ? (
+                <>
+                  {homeTeam}{" "}
+                  <span style={{ color: "var(--ge-primary)" }}>vs</span>{" "}
+                  {awayTeam}
+                </>
+              ) : matchTitle}
+            </h1>
+          </div>
+
+          {/* Back — ghost pill */}
+          <Link href="/" className="ge-back-btn">
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </Link>
         </div>
 
-        <Link href="/" style={{
-          textDecoration: "none",
-          display: "inline-flex", alignItems: "center", gap: 6,
-          background: "rgba(67,56,202,0.12)", border: "1px solid rgba(67,56,202,0.3)",
-          color: "#818CF8", borderRadius: 8, padding: "6px 13px",
-          fontSize: 13, fontWeight: 700, flexShrink: 0,
+        {/* ── Stream player ─────────────────────────────────────────── */}
+        <StreamPlayer slug={slug} matchTitle={matchTitle} initialServers={initialServers} />
+
+        {/* ── AD SLOT — below player ──────────────────────────────────────────────
+            To activate: replace this div with your ad network tag (e.g. Google AdSense
+            <ins class="adsbygoogle" ...> or a custom banner). The slot is 728×90 on
+            desktop and collapses to 320×50 on mobile via the ad-slot-leaderboard class.
+            ──────────────────────────────────────────────────────────────────────── */}
+        <div
+          className="ad-slot-leaderboard"
+          data-ad-slot="watch-below-player"
+          aria-hidden="true"
+        />
+
+        <p style={{
+          fontFamily: "var(--font-hanken), 'Hanken Grotesk', sans-serif",
+          fontSize: 12,
+          color: "var(--ge-on-surface-muted)",
+          opacity: 0.65,
+          margin: 0,
         }}>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </Link>
-      </div>
+          If a stream fails, switch to another server above.
+        </p>
 
-      {/* Stream player — initialServers pre-resolved server-side for instant start */}
-      <StreamPlayer slug={slug} matchTitle={matchTitle} initialServers={initialServers} />
-
-      {/* ── AD SLOT — below player ──────────────────────────────────────────────
-          To activate: replace this div with your ad network tag (e.g. Google AdSense
-          <ins class="adsbygoogle" ...> or a custom banner). The slot is 728×90 on
-          desktop and collapses to 320×50 on mobile via the ad-slot-leaderboard class.
-          ──────────────────────────────────────────────────────────────────────── */}
-      <div
-        className="ad-slot-leaderboard"
-        data-ad-slot="watch-below-player"
-        aria-hidden="true"
-      />
-
-      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.18)" }}>
-        If a stream fails, switch to another server above.
-      </div>
-
-    </main>
+      </main>
+    </div>
   );
 }

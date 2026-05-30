@@ -250,21 +250,29 @@ function LoadingOverlay() {
       position: "absolute", inset: 0,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(135deg, #0F0F23 0%, #1E1B4B 100%)",
+      background: "linear-gradient(160deg, #0f1419 0%, #1b2025 100%)",
       gap: 20,
     }}>
       <svg width={48} height={48} viewBox="0 0 44 44"
         style={{ animation: "spin 0.85s linear infinite", transformOrigin: "center" }}>
-        <circle cx={22} cy={22} r={18} fill="none" stroke="rgba(67,56,202,0.15)" strokeWidth={4} />
-        <path d="M40 22a18 18 0 0 0-18-18" fill="none" stroke="url(#sp-spin-grad)" strokeWidth={4} strokeLinecap="round" />
+        <circle cx={22} cy={22} r={18} fill="none" stroke="rgba(211,47,47,0.14)" strokeWidth={4} />
+        <path d="M40 22a18 18 0 0 0-18-18" fill="none" stroke="url(#ge-spin-grad)" strokeWidth={4} strokeLinecap="round" />
         <defs>
-          <linearGradient id="sp-spin-grad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#4338CA" />
-            <stop offset="100%" stopColor="#818CF8" />
+          <linearGradient id="ge-spin-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#d32f2f" />
+            <stop offset="100%" stopColor="#ef5350" />
           </linearGradient>
         </defs>
       </svg>
-      <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: 700, margin: 0, letterSpacing: 0.5 }}>
+      <p style={{
+        color: "#e4beba",
+        fontSize: 12,
+        fontWeight: 600,
+        margin: 0,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        fontFamily: "var(--font-hanken, 'Hanken Grotesk', sans-serif)",
+      }}>
         Connecting to stream…
       </p>
     </div>
@@ -277,24 +285,38 @@ function NoStreamOverlay() {
       position: "absolute", inset: 0,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(135deg, #0F0F23 0%, #1E1B4B 100%)",
+      background: "linear-gradient(160deg, #0f1419 0%, #1b2025 100%)",
       gap: 14,
     }}>
       <div style={{
         width: 60, height: 60, borderRadius: "50%",
-        background: "rgba(255,23,68,0.08)",
-        border: "1px solid rgba(255,23,68,0.2)",
+        background: "rgba(211,47,47,0.08)",
+        border: "1px solid rgba(211,47,47,0.22)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="rgba(255,23,68,0.6)" strokeWidth={1.5}>
+        <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="rgba(211,47,47,0.65)" strokeWidth={1.5}>
           <circle cx={12} cy={12} r={10} />
           <path strokeLinecap="round" d="M8.5 8.5l7 7M15.5 8.5l-7 7" />
         </svg>
       </div>
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: 800, margin: 0 }}>
+      <p style={{
+        color: "#dee3ea",
+        fontSize: 14,
+        fontWeight: 700,
+        margin: 0,
+        fontFamily: "var(--font-hanken, 'Hanken Grotesk', sans-serif)",
+      }}>
         Stream not available yet
       </p>
-      <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 12, margin: 0, textAlign: "center", maxWidth: 260 }}>
+      <p style={{
+        color: "#e4beba",
+        fontSize: 12,
+        margin: 0,
+        textAlign: "center",
+        maxWidth: 260,
+        fontFamily: "var(--font-hanken, 'Hanken Grotesk', sans-serif)",
+        opacity: 0.8,
+      }}>
         This match may not have started. Check back once it kicks off.
       </p>
     </div>

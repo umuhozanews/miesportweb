@@ -1118,3 +1118,194 @@ a { color: inherit; }
 
 /* ── StreamPlayer dot updated colors ── */
 .sp-dot-blue { background: #818CF8; box-shadow: 0 0 8px #818CF8; }
+
+/* ════════════════════════════════════════════════════════════════
+   GRIDIRON ELITE — WATCH PAGE DESIGN SYSTEM
+   Only applies inside .ge-watch-shell and its class overrides.
+   All other pages are unaffected.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ge-bg-base:           #0f1419;
+  --ge-bg-surface:        #1b2025;
+  --ge-bg-surface-high:   #252a30;
+  --ge-bg-surface-highest:#30353b;
+  --ge-primary:           #d32f2f;
+  --ge-on-primary:        #fff2f0;
+  --ge-on-surface:        #dee3ea;
+  --ge-on-surface-muted:  #e4beba;
+  --ge-outline:           #ab8985;
+  --ge-outline-subtle:    #5b403d;
+}
+
+/* Subtle LIVE badge pulse — ring expand */
+@keyframes ge-live-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(211,47,47,0.70); }
+  70%  { box-shadow: 0 0 0 7px rgba(211,47,47,0);    }
+  100% { box-shadow: 0 0 0 0   rgba(211,47,47,0);    }
+}
+
+/* ── Watch page shell ─────────────────────────────────────────── */
+.ge-watch-shell {
+  position: relative;
+  background: var(--ge-bg-base);
+}
+
+/* Radial "floodlight" glow from the top of the page */
+.ge-floodlight {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 540px;
+  background: radial-gradient(ellipse at 50% 0%,
+    rgba(211,47,47,0.12) 0%,
+    transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Match title (Anton uppercase) ───────────────────────────── */
+.ge-match-title {
+  font-family: var(--font-anton), 'Anton', Impact, sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.75rem, 5vw, 3.25rem);
+  text-transform: uppercase;
+  color: var(--ge-on-surface);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .ge-match-title { font-size: clamp(1.35rem, 7.5vw, 1.9rem); }
+}
+
+/* ── LIVE chip ────────────────────────────────────────────────── */
+.ge-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ge-primary);
+  color: #fff;
+  font-family: 'Hanken Grotesk', var(--font-hanken), sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  padding: 5px 13px;
+  flex-shrink: 0;
+  animation: ge-live-ring 2s ease-out infinite;
+}
+
+.ge-live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  flex-shrink: 0;
+}
+
+/* ── Back button (ghost pill, Anton) ──────────────────────────── */
+.ge-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--ge-on-surface);
+  border-radius: 9999px;
+  padding: 10px 22px;
+  font-family: var(--font-anton), 'Anton', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.ge-back-btn:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.32);
+  color: #fff;
+}
+
+/* ── StreamPlayer — Gridiron Elite overrides ─────────────────── */
+
+/* Server bar card */
+.sp-server-bar {
+  background: rgba(27,32,37,0.88) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: 2rem !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  padding: 16px 22px !important;
+}
+
+/* Status dots */
+.sp-dot-blue {
+  background: var(--ge-primary) !important;
+  box-shadow: 0 0 8px rgba(211,47,47,0.55) !important;
+  animation: ge-live-ring 2s ease-out infinite !important;
+}
+.sp-dot-green {
+  background: #4ade80 !important;
+  box-shadow: 0 0 8px rgba(74,222,128,0.5) !important;
+}
+.sp-dot-red {
+  background: var(--ge-primary) !important;
+}
+
+/* Status label */
+.sp-status-text {
+  font-family: 'Hanken Grotesk', var(--font-hanken), sans-serif !important;
+  color: var(--ge-on-surface-muted) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+}
+.sp-status-text-green { color: #4ade80 !important; }
+
+/* Server buttons — Anton pill */
+.sp-btn {
+  border-radius: 9999px !important;
+  font-family: var(--font-anton), 'Anton', sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  padding: 10px 24px !important;
+  font-size: 13px !important;
+  transition: all 0.15s !important;
+}
+.sp-btn-active {
+  background: var(--ge-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 20px rgba(211,47,47,0.4) !important;
+  border: none !important;
+}
+.sp-btn-idle {
+  background: transparent !important;
+  color: var(--ge-on-surface) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+}
+.sp-btn-idle:hover {
+  background: rgba(211,47,47,0.10) !important;
+  border-color: rgba(211,47,47,0.38) !important;
+  color: #fff !important;
+}
+
+/* Video container */
+.sp-video-wrap {
+  border-radius: 2rem !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+}
+
+/* Hint text */
+.sp-hint {
+  font-family: 'Hanken Grotesk', var(--font-hanken), sans-serif !important;
+  color: var(--ge-on-surface-muted) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  opacity: 0.75 !important;
+}

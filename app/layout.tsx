@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Barlow_Condensed } from "next/font/google";
+import { Inter, Barlow_Condensed, Anton, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { MobileNav } from "./MobileNav";
 import { SiteHeader } from "./SiteHeader";
@@ -8,6 +8,8 @@ import { TickerBar } from "./TickerBar";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], variable: "--font-display", display: "swap", weight: ["600", "700", "800"] });
+const anton = Anton({ subsets: ["latin"], variable: "--font-anton", display: "swap", weight: "400" });
+const hankenGrotesk = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap", weight: ["400", "600", "700"] });
 
 export const metadata: Metadata = {
   title: "MIE SPORT — Live Football & Sports",
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${barlowCondensed.variable}`}>
+    <html lang="en" className={`${inter.variable} ${barlowCondensed.variable} ${anton.variable} ${hankenGrotesk.variable}`}>
       <head>
         <link rel="preload" as="image" href="/foot.png" fetchPriority="high" />
       </head>
