@@ -4,9 +4,7 @@ import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 export const dynamic = "force-dynamic";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/;
-const STV_ORIGIN = "https://www.soccertvhd.com";
 
-// ── Team-name abbreviation variants for GACONDO ────────────────────────────────
 const ABBREVS: [RegExp, string][] = [
   [/\bmanchester-united\b/g, "man-utd"],
   [/\bmanchester-city\b/g, "man-city"],
@@ -52,56 +50,34 @@ export async function GET(request: Request) {
 
   const inner = slug.slice(4);
   const sepIdx = inner.indexOf("--");
-  const pageSlug = sepIdx !== -1 ? inner.slice(sepIdx + 2) : "";
   const teamsPart = sepIdx !== -1 ? inner.slice(0, sepIdx) : inner;
   const gacondoSlugs = teamsPart.includes("-vs-") ? buildGacondoSlugs(teamsPart) : [];
+
+  if (gacondoSlugs.length === 0) return Response.json({ servers: [] });
 
   const seen = new Set<string>();
   const servers: string[] = [];
   const add = (url: string) => addUniq(seen, servers, url);
 
-  // ── Step 1: IMMEDIATE — the relay page URL is derived directly from the slug.
-  //
-  // This is exactly how soccertvhd.com works: the Elfsight calendar links each
-  // match to a relay page (e.g. /sportsurge-sport-surge-live/).  That relay page
-  // IS the stream — a static WordPress page that embeds a JW Player loading
-  // the CacheFly CDN stream.  We serve it as an iframe; the user's browser
-  // fetches the CDN directly with soccertvhd.com as Referer.  No scraping,
-  // no proxying, no blocking — the same zero-proxy model soccertvhd uses.
-  if (pageSlug) {
-    add(`${STV_ORIGIN}/${pageSlug}/`);
-  }
+  try {
+    const result = await Promise.race([
+      getCachedGacondoStream(gacondoSlugs),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 12_000)),
+    ]);
 
-  // ── Step 2: GACONDO — scrapes 10 streaming aggregator sites by team name.
-  //
-  // Runs in parallel so it doesn't delay step 1.  Returns embed iframe URLs
-  // (player pages from hesgoal, footybite, score808, etc.) that the browser
-  // loads directly — same no-proxy model as step 1.
-  const gacondoResult = await (async () => {
-    if (gacondoSlugs.length === 0) return null;
-    try {
-      return await Promise.race([
-        getCachedGacondoStream(gacondoSlugs),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8_000)),
-      ]);
-    } catch {
-      return null;
-    }
-  })();
-
-  if (gacondoResult) {
-    // Embed iframes first — browser fetches CDN directly
-    for (const s of gacondoResult.streams) {
+    // Embed URLs first — pure player pages (no website wrapper).
+    // Browser fetches the CDN directly with the source site as Referer.
+    for (const s of result.streams) {
       if (s.type === "embed") add(s.url);
     }
-    // HLS URLs as last resort — proxied with the source site as Referer
-    const ref = gacondoResult.requestHeaders.referer;
-    for (const s of gacondoResult.streams) {
+
+    // HLS URLs as fallback — proxied with the correct source Referer
+    const ref = result.requestHeaders.referer;
+    for (const s of result.streams) {
       if (s.type === "hls") add(getProxiedHlsUrl(s.url, request.url, ref));
     }
-  }
+  } catch { /* timeout or no streams found */ }
 
-  // Short cache when empty so the client retries sooner
   const cacheHeader = servers.length > 0
     ? "public, s-maxage=50, stale-while-revalidate=15"
     : "public, s-maxage=15, stale-while-revalidate=10";

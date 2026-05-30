@@ -55,12 +55,9 @@ async function resolveInitialServers(slug: string): Promise<string[]> {
   const servers: string[] = [];
   const add = (url: string) => { if (url && !seen.has(url)) { seen.add(url); servers.push(url); } };
 
-  // The relay page URL is built from the slug — no scraping, no blocking.
-  // This is the same URL soccertvhd puts in each Elfsight match button.
-  if (pageSlug) add(`https://www.soccertvhd.com/${pageSlug}/`);
-
-  // GACONDO: try to find embed URLs from 10 other aggregator sites.
-  // Short timeout — this is a page render, not a background job.
+  // GACONDO scrapes 10 streaming aggregator sites by team name.
+  // Returns pure player embed URLs (no website wrapper) from sites like
+  // hesgoal, footybite, score808 etc. Short timeout for SSR.
   const gacondoSlugs = teamsPart.includes("-vs-") ? buildPageGacondoSlugs(teamsPart) : [];
   if (gacondoSlugs.length > 0) {
     try {
@@ -75,7 +72,7 @@ async function resolveInitialServers(slug: string): Promise<string[]> {
       for (const s of result.streams) {
         if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
       }
-    } catch { /* timeout or GACONDO miss — relay URL above is still in the list */ }
+    } catch { /* timeout or no streams found yet */ }
   }
 
   return servers;
