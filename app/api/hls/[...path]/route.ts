@@ -33,9 +33,8 @@ function isStreamSource(s: string): s is StreamSource {
 }
 
 function makeCorsHeaders(requestOrigin: string | null) {
-  // Allow our own domains; also allow Vercel preview deployments and same-origin (null)
   const allowed =
-    requestOrigin && (ALLOWED_ORIGINS.has(requestOrigin) || requestOrigin.endsWith(".vercel.app"))
+    requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)
       ? requestOrigin
       : APPROVED_ORIGIN;
   return new Headers({

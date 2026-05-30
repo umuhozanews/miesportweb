@@ -8,11 +8,20 @@ const MEDIA_URL_PATTERN =
   /https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mpd|mp4)(?:\?[^\s"'<>\\]*)?/gi;
 const EMBED_PATTERN =
   /<(?:iframe|source|video-js|video|embed)\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;
+// data-* on any element (e.g. <div data-src="...m3u8">) — many WP player plugins use these
+const DATA_ATTR_PATTERN =
+  /\bdata-(?:src|url|file|stream|hls|video|media|playlist|source)=["']([^"']{10,})["']/gi;
 // HLS/DASH URLs assigned to JS variables — covers all common player variable names
 const JS_STREAM_PATTERN =
-  /(?:file|source|src|url|stream|hls|hlsSrc|m3u8|m3u8Url|streamUrl|playlist|media|video|path)\s*[=:]\s*["']([^"']{10,}(?:\.m3u8|\.mpd)(?:\?[^"']*)?)['"]/gi;
+  /(?:file|source|src|url|stream|hls|hlsSrc|m3u8|m3u8Url|streamUrl|playlist|media|video|path|liveUrl|hlsUrl|videoUrl|playerUrl|manifestUrl)\s*[=:]\s*["'`]([^"'`]{10,}(?:\.m3u8|\.mpd)(?:\?[^"'`]*)?)['"` ]/gi;
+// base64-encoded URLs — atob('...')  used to hide m3u8 URLs from simple scrapers
+const BASE64_PATTERN =
+  /(?:atob|window\.atob)\s*\(\s*["']([A-Za-z0-9+/=]{20,})["']\s*\)/gi;
+// External <script src="..."> — player config is often in a separate JS file
+const SCRIPT_SRC_PATTERN =
+  /<script[^>]+\bsrc=["']([^"']+)["'][^>]*>/gi;
 
-// Realistic browser UAs — rotate every 3 minutes so each cache window looks different
+// Realistic browser UAs — pick randomly per request so concurrent Workers look different
 const UA_POOL = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -20,10 +29,28 @@ const UA_POOL = [
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
 ];
 
 function pickUA(): string {
-  return UA_POOL[Math.floor(Date.now() / 180_000) % UA_POOL.length];
+  return UA_POOL[Math.floor(Math.random() * UA_POOL.length)];
+}
+
+/** Return Chrome Client Hints headers that match the given UA, or {} for non-Chrome UAs. */
+function getClientHints(ua: string): Record<string, string> {
+  const m = ua.match(/Chrome\/(\d+)/);
+  if (!m) return {};
+  const v = m[1];
+  const platform = ua.includes("Macintosh") ? '"macOS"'
+    : ua.includes("Linux") ? '"Linux"'
+    : '"Windows"';
+  const mobile = ua.includes("Mobile") ? "?1" : "?0";
+  return {
+    "sec-ch-ua": `"Google Chrome";v="${v}", "Chromium";v="${v}", "Not.A/Brand";v="24"`,
+    "sec-ch-ua-mobile": mobile,
+    "sec-ch-ua-platform": platform,
+  };
 }
 
 // CF Workers fetch extension (silently ignored in Node.js)
@@ -271,8 +298,8 @@ export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeRes
 // The slug is part of the cache key so each match gets its own entry.
 export const getCachedStvStream = cache(
   async (slug: string): Promise<SoccerTvHdStreamResult> => scrapeSoccerTvHdStream(slug),
-  ["stv-stream-v5"],
-  { revalidate: 120 }, // 2 min — keep tokens fresh, catch new streams faster
+  ["stv-stream-v6"],
+  { revalidate: 50 }, // 50s — ensures fresh CDN tokens are always available on client refresh
 );
 
 export async function scrapeSoccerTvHdStream(
@@ -291,22 +318,74 @@ export async function scrapeSoccerTvHdStream(
     .slice(0, 4);
 
   const deepHls: StreamResource[] = [];
+  const externalEmbeds: StreamResource[] = [];
+
   if (stvEmbeds.length > 0) {
     const settled = await Promise.allSettled(
       stvEmbeds.map(async (embed) => {
-        const embedHtml = await fetchText(embed.url, 4_000);
-        return extractMediaResources(embedHtml, embed.url).filter(
-          (s) => s.type === "hls" || s.type === "dash",
-        );
+        // Fetch relay page with the match page as Referer — matches what a browser does
+        // and passes soccertvhd.com's own Referer/Origin checks.
+        const embedHtml = await fetchText(embed.url, 5_000, sourceUrl);
+        const resources = extractMediaResources(embedHtml, embed.url);
+
+        // Also scan external <script src="..."> files for player config (many WP players
+        // put the HLS URL in a separate .js file, not inline in the HTML).
+        const scriptHls: StreamResource[] = [];
+        for (const m of embedHtml.matchAll(SCRIPT_SRC_PATTERN)) {
+          const scriptSrc = m[1];
+          // Only fetch scripts that look like player / stream config files.
+          if (!/(?:player|stream|config|jwplayer|video|hls|live)/i.test(scriptSrc)) continue;
+          try {
+            const scriptUrl = new URL(scriptSrc, embed.url).toString();
+            const scriptText = await fetchText(scriptUrl, 3_000, embed.url);
+            scriptHls.push(...extractMediaResources(scriptText, scriptUrl)
+              .filter((s) => s.type === "hls" || s.type === "dash"));
+          } catch { /* skip unreachable scripts */ }
+        }
+
+        return {
+          hls: [
+            ...resources.filter((s) => s.type === "hls" || s.type === "dash"),
+            ...scriptHls,
+          ],
+          // External iframes from relay pages — third-party embeds that handle their
+          // own token lifecycle and don't go through our proxy (no IP rate-limit risk)
+          external: resources.filter(
+            (s) => s.type === "embed" && !s.url.startsWith(SITE_ORIGIN),
+          ),
+        };
       }),
     );
     for (const r of settled) {
-      if (r.status === "fulfilled") deepHls.push(...r.value);
+      if (r.status === "fulfilled") {
+        deepHls.push(...r.value.hls);
+        externalEmbeds.push(...r.value.external);
+      }
     }
   }
 
-  // Deep HLS/DASH streams first (most playable), then raw page results
-  const streams = dedupeStreams([...deepHls, ...rawStreams]);
+  // Build ordered stream list:
+  // 1. Deep HLS (found inside relay pages / their scripts) — most playable
+  // 2. Raw streams from the match page itself
+  // 3. External third-party embeds found inside relay pages
+  // 4. The soccertvhd.com relay pages themselves as direct iframe fallbacks
+  //    (the user's browser can execute their JS and play the stream natively)
+  // 5. The soccertvhd.com match page as the last-resort iframe fallback
+  const relayEmbeds: StreamResource[] = stvEmbeds.map((e) => ({ ...e, type: "embed" as const }));
+  const matchPageEmbed: StreamResource = {
+    type: "embed",
+    url: sourceUrl,
+    source: "html",
+    contentType: null,
+  };
+
+  const streams = dedupeStreams([
+    ...deepHls,
+    ...rawStreams,
+    ...externalEmbeds,
+    ...relayEmbeds,
+    matchPageEmbed,
+  ]);
 
   return {
     sourceUrl,
@@ -315,7 +394,6 @@ export async function scrapeSoccerTvHdStream(
     streams,
     primary:
       streams.find((stream) => stream.type === "hls") ??
-      streams.find((stream) => stream.type === "dash") ??
       streams.find((stream) => stream.type === "embed") ??
       streams[0] ??
       null,
@@ -344,38 +422,37 @@ function getBootUrl(widgetId: string) {
   return url.toString();
 }
 
-async function fetchText(url: string, timeoutMs = 8_000): Promise<string> {
+async function fetchText(url: string, timeoutMs = 8_000, referer?: string): Promise<string> {
   const ua = pickUA();
-  const init = cfInit({
-    cache: "no-store",
-    signal: AbortSignal.timeout(timeoutMs),
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "accept-language": "en-US,en;q=0.9",
-      "accept-encoding": "gzip, deflate, br",
-      "user-agent": ua,
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "none",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      "cache-control": "max-age=0",
-    },
-  }, 60); // cache page fetches for 1 min at CF edge
+  const hints = getClientHints(ua);
+  // sec-fetch-site: "same-origin" when we have a referer on the same domain, "none" otherwise
+  const fetchSite = referer && new URL(referer).origin === SITE_ORIGIN ? "same-origin" : "none";
+
+  const buildHeaders = (u: string): Record<string, string> => ({
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "accept-language": "en-US,en;q=0.9",
+    "accept-encoding": "gzip, deflate, br",
+    "user-agent": u,
+    ...getClientHints(u),
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": fetchSite,
+    "sec-fetch-user": "?1",
+    "upgrade-insecure-requests": "1",
+    "cache-control": "max-age=0",
+    // Referer + Origin: makes the request look like a real browser navigation
+    ...(referer ? { referer, origin: new URL(referer).origin } : {}),
+  });
+
+  const init = cfInit({ cache: "no-store", signal: AbortSignal.timeout(timeoutMs), headers: buildHeaders(ua) }, 60);
 
   let response: Response;
   try {
     response = await fetch(url, init as RequestInit);
   } catch (err) {
-    // Retry once with a different UA
-    const init2 = cfInit({
-      cache: "no-store",
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: {
-        accept: "text/html,*/*",
-        "user-agent": UA_POOL[(UA_POOL.indexOf(ua) + 1) % UA_POOL.length],
-      },
-    }, 60);
+    // Retry once with the next UA in the pool
+    const ua2 = UA_POOL[(UA_POOL.indexOf(ua) + 1) % UA_POOL.length];
+    const init2 = cfInit({ cache: "no-store", signal: AbortSignal.timeout(timeoutMs), headers: buildHeaders(ua2) }, 60);
     response = await fetch(url, init2 as RequestInit);
     if (!response) throw err;
   }
@@ -535,10 +612,31 @@ function extractMediaResources(html: string, pageUrl: string): StreamResource[] 
     try { urls.add(new URL(decodeHtml(match[1]), pageUrl).toString()); } catch { /* skip */ }
   }
 
-  // 3. JavaScript variable assignments containing HLS/DASH URLs
+  // 3. data-src / data-url / data-file / data-stream on any element
+  for (const match of html.matchAll(DATA_ATTR_PATTERN)) {
+    const val = decodeHtml(match[1]);
+    try { urls.add(new URL(val, pageUrl).toString()); } catch { /* skip */ }
+  }
+
+  // 4. JavaScript variable assignments containing HLS/DASH URLs
   for (const match of html.matchAll(JS_STREAM_PATTERN)) {
-    const u = decodeHtml(match[1]);
+    const u = decodeHtml(match[1]).trim().replace(/[`'"]$/, "");
     if (/^https?:\/\//i.test(u)) urls.add(u);
+  }
+
+  // 5. atob()-encoded URLs — decode base64 and look for media URLs inside
+  for (const match of html.matchAll(BASE64_PATTERN)) {
+    try {
+      const decoded = atob(match[1]);
+      // Decoded might be a plain URL or a JSON blob containing a URL
+      for (const m of decoded.matchAll(MEDIA_URL_PATTERN)) urls.add(m[0]);
+      const js = JS_STREAM_PATTERN;
+      js.lastIndex = 0;
+      for (const m of decoded.matchAll(js)) {
+        const u = m[1]?.trim();
+        if (u && /^https?:\/\//i.test(u)) urls.add(u);
+      }
+    } catch { /* invalid base64 — skip */ }
   }
 
   return [...urls].map((url) => ({

@@ -31,9 +31,13 @@ if (!fs.existsSync(handlerPath)) {
   console.error("handler.mjs not found — run npm run build first");
   process.exit(1);
 }
-if (!fs.existsSync(ssrDir)) {
-  console.error("SSR chunks directory not found:", ssrDir);
-  process.exit(1);
+
+// Webpack builds don't produce a chunks/ssr directory (that's Turbopack-only).
+// In webpack mode, chunk loading is handled by webpack's own runtime, so
+// the requireChunk patch is not needed — skip it gracefully.
+const isWebpackBuild = !fs.existsSync(ssrDir);
+if (isWebpackBuild) {
+  console.log("Webpack build detected (no chunks/ssr dir) — SSR chunk embedding skipped.");
 }
 
 const STUB =
@@ -68,7 +72,7 @@ if (handlerAlreadyPatched) {
   console.log("requireChunk stub not found — handler.mjs already patched, skipping handler patches.");
 }
 
-if (!handlerAlreadyPatched) {
+if (!handlerAlreadyPatched && !isWebpackBuild) {
   const chunkFiles = fs.readdirSync(ssrDir).filter((f) => f.endsWith(".js"));
   console.log(`Embedding ${chunkFiles.length} SSR chunks into handler.mjs...`);
 

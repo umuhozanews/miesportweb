@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-// Allow self-signed / incomplete TLS chains for local dev on Windows.
-// This has no effect in production (CF Workers run their own TLS stack).
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+// Only bypass TLS verification for local dev (Windows self-signed/incomplete cert chains).
+// On Vercel the NODE_TLS_REJECT_UNAUTHORIZED env var DOES affect Node.js — keep it strict.
+// CF Workers use their own TLS stack so the flag has no effect there regardless.
+if (!process.env.VERCEL) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
 
 if (!process.env.VERCEL) {
   initOpenNextCloudflareForDev();
@@ -11,20 +14,31 @@ if (!process.env.VERCEL) {
 
 // Applied to every response — hardens against common web attacks
 const securityHeaders = [
-  // Prevent MIME-type sniffing
   { key: "X-Content-Type-Options", value: "nosniff" },
-  // Prevent our pages from being iframed on other domains (clickjacking)
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
-  // Legacy XSS filter (belt + suspenders alongside CSP)
   { key: "X-XSS-Protection", value: "1; mode=block" },
-  // Don't leak full URL to third-party sites; only send origin
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // Disable browser APIs we don't need
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-  // Force HTTPS for 2 years
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  // Vary on encoding so CF caches gzip/br separately
   { key: "Vary", value: "Accept-Encoding" },
+  // Content-Security-Policy — allows Next.js inline scripts, external fonts,
+  // and iframes from any HTTPS origin (needed for third-party stream embeds).
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      // Next.js injects inline scripts; VideoJS loaded from CDN
+      "script-src 'self' 'unsafe-inline' https://1aaaa.b-cdn.net https://2aaaaa.b-cdn.net",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://1aaaa.b-cdn.net",
+      "img-src * data: blob:",
+      "media-src * blob:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https:",
+      // Stream embeds come from many third-party sources
+      "frame-src 'self' https:",
+      "worker-src 'self' blob:",
+    ].join("; "),
+  },
 ];
 
 const nextConfig: NextConfig = {
@@ -36,35 +50,31 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        // HLS/stream proxy — never cache at the browser or CDN level
+        // HLS/stream proxy — never cache at the browser level
         source: "/api/hls/(.*)",
         headers: [
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
         ],
       },
       {
-        // Match list — cache at the Cloudflare edge for 5 minutes
         source: "/api/matches",
         headers: [
           { key: "Cache-Control", value: "public, s-maxage=300, stale-while-revalidate=60" },
         ],
       },
       {
-        // Stream server list — cache at the CF edge for 1 minute
         source: "/api/stream-servers",
         headers: [
-          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=30" },
+          { key: "Cache-Control", value: "public, s-maxage=50, stale-while-revalidate=15" },
         ],
       },
       {
-        // Livescore proxy — cache at the CF edge for 30 seconds
         source: "/api/livescore-proxy/(.*)",
         headers: [
           { key: "Cache-Control", value: "public, s-maxage=30, stale-while-revalidate=15" },
         ],
       },
       {
-        // Image proxy — cache logos/badges aggressively at the CF edge
         source: "/api/img",
         headers: [
           { key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" },

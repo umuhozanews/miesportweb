@@ -89,13 +89,16 @@ export function StreamPlayer({
   const empty = !loading && servers.length === 0;
   const rawUrl = servers?.[active] ?? null;
 
-  // Route HLS streams through the embed player (/api/hls/ and /api/hls? are both our proxy formats)
+  // Route HLS proxy URLs through the embed player so HLS.js can play them.
+  // Direct embed URLs (soccertvhd.com relay pages, third-party iframes) load as-is —
+  // their own JS handles playback in the browser, which is how soccertvhd.com works.
   const isHls = rawUrl
-    ? rawUrl.startsWith("/api/hls") || /\.m3u8(\?|$)/i.test(rawUrl)
+    ? (rawUrl.startsWith("/api/hls") || /\.m3u8(\?|$)/i.test(rawUrl)) &&
+      !/\.mpd(\?|$)/i.test(rawUrl)
     : false;
   const frameUrl = rawUrl
     ? isHls
-      ? `/embed/hls?url=${encodeURIComponent(rawUrl)}`
+      ? `/embed/hls?url=${encodeURIComponent(rawUrl)}&slug=${encodeURIComponent(slug)}`
       : rawUrl
     : null;
 
@@ -215,7 +218,8 @@ export function StreamPlayer({
             style={{ width: "100%", height: "100%", border: "none", display: "block" }}
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            referrerPolicy="no-referrer-when-downgrade"
+            referrerPolicy="origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation"
             title={matchTitle}
           />
         )}

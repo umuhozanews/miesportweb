@@ -52,7 +52,7 @@ export function getOriginalStreamUrl(proxied: string): string | null {
   return null;
 }
 
-export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost") {
+export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost", referer?: string) {
   const streamUrl = new URL(target);
   const source = getStreamSource(streamUrl);
 
@@ -62,9 +62,11 @@ export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost"
     return url.pathname + url.search;
   }
 
-  // Proxy ALL other HLS streams — ensures correct referer/origin headers reach the CDN
+  // Proxy ALL other HLS streams — ensures correct referer/origin headers reach the CDN.
+  // Pass an optional ?ref= so the proxy sends the right Referer for non-soccertvhd sources.
   const url = new URL("/api/hls", requestUrl);
   url.searchParams.set("url", target);
+  if (referer) url.searchParams.set("ref", referer);
   return url.pathname + url.search;
 }
 
@@ -150,12 +152,15 @@ export function corsHeaders(request?: Request) {
   });
 }
 
-function isAllowedStreamUrl(url: URL) {
-  return url.protocol === "https:" && (Boolean(getStreamSource(url)) || isCacheflyHost(url));
-}
+const PRIVATE_IP_RE =
+  /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fd[0-9a-f]{2}:|fe80:|localhost)/i;
 
-function isCacheflyHost(url: URL) {
-  return url.hostname.endsWith(".cachefly.net");
+function isAllowedStreamUrl(url: URL) {
+  if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+  if (PRIVATE_IP_RE.test(url.hostname)) return false;
+  if (/^\[/.test(url.hostname)) return false; // IPv6 literals
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(url.hostname)) return false; // bare IPv4
+  return true;
 }
 
 function getStreamSource(url: URL) {
@@ -209,11 +214,13 @@ function getUpstreamUrlCandidates(streamUrl: URL) {
 }
 
 async function isUsableUpstreamResponse(response: Response) {
-  if (response.ok) {
-    return true;
-  }
-
-  return response.status !== 403;
+  if (response.ok) return true;
+  // 403/401: auth-header issue — try next header mode
+  if (response.status === 403 || response.status === 401) return false;
+  // 5xx: upstream server error — not a valid stream response
+  if (response.status >= 500) return false;
+  // Other 4xx (404 = stream gone, etc.) — pass through to client
+  return true;
 }
 
 function upstreamHeaders(

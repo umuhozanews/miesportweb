@@ -3,6 +3,7 @@ import { getOriginalStreamUrl } from "@/lib/hlsProxy";
 export function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const streamUrl = searchParams.get("url") ?? "";
+  const slug = searchParams.get("slug") ?? "";
 
   if (!streamUrl) {
     return new Response("Missing url parameter", { status: 400 });
@@ -42,21 +43,79 @@ export function GET(request: Request) {
 </head>
 <body>
 <video id="v" autoplay controls playsinline></video>
-<div id="err">Stream unavailable.<br>Try another server.</div>
+<div id="err">Reconnecting to stream…</div>
 <!-- Self-hosted hls.js — no CDN dependency, works on all networks -->
 <script src="/hls.min.js"></script>
 <script>
 (function(){
   var proxySrc = ${JSON.stringify(proxySrc)};
   var directSrc = ${JSON.stringify(directSrc)};
+  var slug = ${JSON.stringify(slug)};
+
   var v = document.getElementById('v');
   var err = document.getElementById('err');
   var hls = null;
+  var refreshTimer = null;
+  var refreshAttempts = 0;
+  var MAX_REFRESH = 8;
+  var isFatalPending = false;
 
-  function showErr(){
-    v.style.display='none';
-    err.style.display='flex';
-    try { window.parent.postMessage({type:'hls-error'},'*'); } catch(e){}
+  function showErr() {
+    err.textContent = 'Stream unavailable. Try another server.';
+    v.style.display = 'none';
+    err.style.display = 'flex';
+    try { window.parent.postMessage({type:'hls-error'}, window.location.origin); } catch(e){}
+  }
+
+  function scheduleRefresh(ms) {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(doRefresh, ms);
+  }
+
+  function doRefresh() {
+    if (!slug) { if (isFatalPending) showErr(); return; }
+    if (refreshAttempts >= MAX_REFRESH) { showErr(); return; }
+    refreshAttempts++;
+
+    // Cache-bust so we always get a fresh token, not a stale cached response
+    fetch('/api/stream-servers?slug=' + encodeURIComponent(slug) + '&_t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var servers = d.servers || [];
+        var newUrl = null;
+        for (var i = 0; i < servers.length; i++) {
+          var s = servers[i];
+          if (s && (s.startsWith('/api/hls') || /\\.m3u8/i.test(s))) {
+            newUrl = s.startsWith('http') ? s : (window.location.origin + s);
+            break;
+          }
+        }
+
+        if (!newUrl) {
+          // No HLS stream yet — retry sooner
+          scheduleRefresh(isFatalPending ? 6000 : 12000);
+          return;
+        }
+
+        // Got a fresh URL — reset error state and reload stream
+        refreshAttempts = 0;
+        isFatalPending = false;
+        err.style.display = 'none';
+        v.style.display = '';
+
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+          hlsLoad(newUrl);
+        } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+          v.src = newUrl;
+          v.load();
+          v.play().catch(function(){});
+        }
+        // Next proactive refresh in 50s (well before 60s token expiry)
+        scheduleRefresh(50000);
+      })
+      .catch(function(){
+        scheduleRefresh(isFatalPending ? 5000 : 15000);
+      });
   }
 
   function hlsLoad(src) {
@@ -65,44 +124,51 @@ export function GET(request: Request) {
     if (hls) { try { hls.destroy(); } catch(e){} hls = null; }
     hls = new Hls({
       debug: false,
-      // Buffer settings — keep lean so mobile doesn't OOM
-      maxBufferLength: 10,
-      maxMaxBufferLength: 30,
-      // Live sync — tolerate higher latency so mobile data doesn't cause stalls
+      maxBufferLength: 12,
+      maxMaxBufferLength: 40,
       liveSyncDurationCount: 3,
       liveMaxLatencyDurationCount: 10,
-      // Generous timeouts for mobile data connections
       manifestLoadingTimeOut: 10000,
-      manifestLoadingMaxRetry: 3,
-      manifestLoadingRetryDelay: 500,
+      manifestLoadingMaxRetry: 4,
+      manifestLoadingRetryDelay: 1000,
       levelLoadingTimeOut: 10000,
-      levelLoadingMaxRetry: 3,
+      levelLoadingMaxRetry: 4,
       fragLoadingTimeOut: 20000,
       fragLoadingMaxRetry: 6,
-      fragLoadingRetryDelay: 500,
-      // Start conservatively — let ABR ramp up; avoids initial stall on slow connections
+      fragLoadingRetryDelay: 1000,
       startLevel: -1,
       abrEwmaDefaultEstimate: 500000,
-      enableWorker: false,
+      // Enable worker for better performance on mobile (offloads demuxing from main thread)
+      enableWorker: true,
     });
     hls.loadSource(src);
     hls.attachMedia(v);
-    hls.on(Hls.Events.MANIFEST_PARSED, function(){ v.play().catch(function(){}); });
+    hls.on(Hls.Events.MANIFEST_PARSED, function(){
+      v.play().catch(function(){});
+      // Proactively refresh stream URL 50s from now — before the CDN token expires (~60s)
+      if (slug) scheduleRefresh(50000);
+    });
     hls.on(Hls.Events.ERROR, function(event, data){
       if (!data.fatal) return;
-      showErr();
+      // Fatal error: try refreshing token first, only show error if all retries fail
+      isFatalPending = true;
+      err.textContent = 'Reconnecting…';
+      err.style.display = 'flex';
+      if (slug && refreshAttempts < MAX_REFRESH) {
+        scheduleRefresh(800);
+      } else {
+        showErr();
+      }
     });
     return true;
   }
 
   if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-    // Chrome, Firefox, Android Chrome — CORS blocks direct CDN for XHR,
-    // so go straight to the same-origin proxy (never blocked by CORS).
+    // Chrome, Firefox, Android Chrome — go straight to the same-origin proxy
     hlsLoad(proxySrc);
 
   } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-    // iOS Safari native HLS — media element fetches bypass CORS, so try direct CDN
-    // first (no extra hop), then fall back to proxy.
+    // iOS Safari native HLS — try direct CDN first, then proxy, then refresh
     var nativeSrc = (directSrc && directSrc !== proxySrc) ? directSrc : proxySrc;
     var usingDirect = nativeSrc !== proxySrc;
     function tryNative(src) {
@@ -115,15 +181,19 @@ export function GET(request: Request) {
       if (usingDirect) {
         usingDirect = false;
         tryNative(proxySrc);
+      } else if (slug && refreshAttempts < MAX_REFRESH) {
+        isFatalPending = true;
+        scheduleRefresh(800);
       } else {
         showErr();
       }
     });
     tryNative(nativeSrc);
+    // Proactive refresh for iOS too
+    if (slug) scheduleRefresh(50000);
 
   } else {
-    // Browser doesn't advertise HLS support — try proxy URL as raw video src anyway.
-    // Some browsers (Samsung Internet, older Android) can play HLS natively without canPlayType.
+    // Fallback for browsers that advertise no HLS support
     v.src = proxySrc;
     v.load();
     v.play().catch(function(){});

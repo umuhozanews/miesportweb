@@ -368,9 +368,15 @@ a { color: inherit; }
 /* ════════════════ RESPONSIVE — TABLET (≤ 1024px) ════════════════ */
 
 @media (max-width: 1024px) {
-  .panel-body { grid-template-columns: 290px 1fr; gap: 1rem; }
+  .panel-body { grid-template-columns: 260px 1fr; gap: 1rem; }
   .ls-body    { padding: 1rem; gap: 1rem; }
   .hero-inner { padding: 1.5rem 1.25rem 1rem; }
+}
+
+/* ════════════════ RESPONSIVE — NARROW DESKTOP / WIDE TABLET (≤ 900px) ════════════════ */
+@media (max-width: 900px) {
+  /* Shrink side panel further before it collapses entirely at 768px */
+  .panel-body { grid-template-columns: 220px 1fr; gap: 0.875rem; }
 }
 
 /* ════════════════ RESPONSIVE — MOBILE (≤ 768px) ════════════════ */
@@ -788,6 +794,8 @@ a { color: inherit; }
   background: #000;
   aspect-ratio: 16 / 9; width: 100%;
   position: relative;
+  /* Ensure a usable minimum height on very small portrait screens */
+  min-height: 200px;
 }
 .sp-hint {
   font-size: 12px; color: rgba(255,255,255,0.22);
@@ -806,6 +814,33 @@ a { color: inherit; }
 }
 @media (max-width: 480px) {
   .mc-sticky-bar { margin: -0.75rem -0.75rem 14px; padding: 8px 0.75rem; }
+}
+
+/* ════════════════ AD SLOTS ════════════════ */
+
+/* Leaderboard slot — 728×90 desktop, 320×50 mobile.
+   Empty by default; ad networks fill this when activated.
+   Hides itself if the ad network leaves it empty (prevents blank space). */
+.ad-slot-leaderboard {
+  width: 100%;
+  max-width: 728px;
+  height: 90px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  /* Invisible until an ad fills it */
+  background: transparent;
+}
+.ad-slot-leaderboard:empty { display: none; }
+
+@media (max-width: 740px) {
+  .ad-slot-leaderboard {
+    max-width: 320px;
+    height: 50px;
+  }
 }
 
 /* ════════════════ LOVABLE SITE SHELL ════════════════ */

@@ -113,6 +113,7 @@ async function sf<T>(path: string): Promise<T | null> {
     const res = await fetch(`${BASE}${path}`, {
       headers: HEADERS,
       cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
     return res.json() as T;

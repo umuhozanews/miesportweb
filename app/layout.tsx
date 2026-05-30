@@ -23,6 +23,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${barlowCondensed.variable}`}>
+      <head>
+        <link rel="preload" as="image" href="/foot.png" fetchPriority="high" />
+      </head>
       <body className={inter.className}>
         <SiteHeader />
         <TickerBar />
