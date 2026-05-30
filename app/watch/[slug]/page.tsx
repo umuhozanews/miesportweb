@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { StreamPlayer } from "./StreamPlayer";
-import { getCachedStvStream } from "@/lib/soccerTvHd";
 import { getCachedGacondoStream } from "@/GACONDO";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
@@ -41,8 +40,9 @@ function buildPageGacondoSlugs(teamsPart: string): string[] {
   return [...variants];
 }
 
-// Pre-resolve stream URLs server-side so the player starts immediately on page load.
-// Runs both soccertvhd and GACONDO in parallel — whichever has a cache hit wins.
+// Pre-resolve stream URLs server-side so the player has something to show instantly.
+// The relay page URL is derived directly from the slug — no HTTP fetch needed.
+// GACONDO runs in parallel to find additional embed alternatives.
 async function resolveInitialServers(slug: string): Promise<string[]> {
   if (!slug.startsWith("stv-")) return [];
   const inner = slug.slice(4);
@@ -50,54 +50,32 @@ async function resolveInitialServers(slug: string): Promise<string[]> {
   if (sepIdx === -1) return [];
   const pageSlug = inner.slice(sepIdx + 2);
   const teamsPart = inner.slice(0, sepIdx);
-  const gacondoSlugs = teamsPart.includes("-vs-") ? buildPageGacondoSlugs(teamsPart) : [];
-
-  const [stvSettled, gacondoSettled] = await Promise.allSettled([
-    pageSlug
-      ? Promise.race([
-          getCachedStvStream(pageSlug),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
-        ])
-      : Promise.reject(new Error("no page slug")),
-    gacondoSlugs.length > 0
-      ? Promise.race([
-          getCachedGacondoStream(gacondoSlugs),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
-        ])
-      : Promise.reject(new Error("no team slug")),
-  ]);
 
   const seen = new Set<string>();
   const servers: string[] = [];
   const add = (url: string) => { if (url && !seen.has(url)) { seen.add(url); servers.push(url); } };
 
-  // Embed URLs first — browser fetches CDN directly (same as soccertvhd's relay-iframe approach)
-  if (stvSettled.status === "fulfilled") {
-    for (const s of stvSettled.value.streams) {
-      if (s.type === "embed" && s.url.includes("soccertvhd.com")) add(s.url);
-    }
-  }
-  if (gacondoSettled.status === "fulfilled") {
-    for (const s of gacondoSettled.value.streams) {
-      if (s.type === "embed") add(s.url);
-    }
-  }
-  if (stvSettled.status === "fulfilled") {
-    for (const s of stvSettled.value.streams) {
-      if (s.type === "embed" && !s.url.includes("soccertvhd.com")) add(s.url);
-    }
-  }
-  // HLS proxy as fallback
-  if (stvSettled.status === "fulfilled") {
-    for (const s of stvSettled.value.streams) {
-      if (s.type === "hls") add(getProxiedHlsUrl(s.url));
-    }
-  }
-  if (gacondoSettled.status === "fulfilled") {
-    const ref = gacondoSettled.value.requestHeaders.referer;
-    for (const s of gacondoSettled.value.streams) {
-      if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
-    }
+  // The relay page URL is built from the slug — no scraping, no blocking.
+  // This is the same URL soccertvhd puts in each Elfsight match button.
+  if (pageSlug) add(`https://www.soccertvhd.com/${pageSlug}/`);
+
+  // GACONDO: try to find embed URLs from 10 other aggregator sites.
+  // Short timeout — this is a page render, not a background job.
+  const gacondoSlugs = teamsPart.includes("-vs-") ? buildPageGacondoSlugs(teamsPart) : [];
+  if (gacondoSlugs.length > 0) {
+    try {
+      const result = await Promise.race([
+        getCachedGacondoStream(gacondoSlugs),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
+      ]);
+      for (const s of result.streams) {
+        if (s.type === "embed") add(s.url);
+      }
+      const ref = result.requestHeaders.referer;
+      for (const s of result.streams) {
+        if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
+      }
+    } catch { /* timeout or GACONDO miss — relay URL above is still in the list */ }
   }
 
   return servers;
