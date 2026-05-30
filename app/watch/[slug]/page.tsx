@@ -3,6 +3,26 @@ import { StreamPlayer } from "./StreamPlayer";
 import { getCachedGacondoStream } from "@/GACONDO";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
 
+const STV_ORIGIN = "https://www.soccertvhd.com";
+const STV_WP_API = `${STV_ORIGIN}/wp-json/wp/v2/posts`;
+
+async function fetchStvRelayStream(pageSlug: string): Promise<{ m3u8: string; referer: string } | null> {
+  try {
+    const url = `${STV_WP_API}?slug=${encodeURIComponent(pageSlug)}&_fields=content`;
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(4_000),
+      headers: { "user-agent": "Mozilla/5.0", "accept": "application/json" },
+    });
+    if (!resp.ok) return null;
+    const posts = await resp.json() as Array<{ content?: { rendered?: string } }>;
+    const content = posts[0]?.content?.rendered ?? "";
+    const m3u8Match = content.match(/<source[^>]+src=["']([^"']+\.m3u8[^"']*)["']/i)
+      ?? content.match(/src=["']([^"']+\.m3u8[^"']*)["']/i);
+    if (!m3u8Match) return null;
+    return { m3u8: m3u8Match[1], referer: `${STV_ORIGIN}/${pageSlug}/` };
+  } catch { return null; }
+}
+
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
@@ -55,24 +75,31 @@ async function resolveInitialServers(slug: string): Promise<string[]> {
   const servers: string[] = [];
   const add = (url: string) => { if (url && !seen.has(url)) { seen.add(url); servers.push(url); } };
 
-  // GACONDO scrapes 10 streaming aggregator sites by team name.
-  // Returns pure player embed URLs (no website wrapper) from sites like
-  // hesgoal, footybite, score808 etc. Short timeout for SSR.
   const gacondoSlugs = teamsPart.includes("-vs-") ? buildPageGacondoSlugs(teamsPart) : [];
-  if (gacondoSlugs.length > 0) {
-    try {
-      const result = await Promise.race([
-        getCachedGacondoStream(gacondoSlugs),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
-      ]);
-      for (const s of result.streams) {
-        if (s.type === "embed") add(s.url);
-      }
-      const ref = result.requestHeaders.referer;
-      for (const s of result.streams) {
-        if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
-      }
-    } catch { /* timeout or no streams found yet */ }
+
+  const [stvResult, gacondoResult] = await Promise.allSettled([
+    pageSlug ? fetchStvRelayStream(pageSlug) : Promise.resolve(null),
+    gacondoSlugs.length > 0
+      ? Promise.race([
+          getCachedGacondoStream(gacondoSlugs),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
+        ])
+      : Promise.resolve(null),
+  ]);
+
+  if (stvResult.status === "fulfilled" && stvResult.value) {
+    const { m3u8, referer } = stvResult.value;
+    add(getProxiedHlsUrl(m3u8, "http://localhost", referer));
+  }
+
+  if (gacondoResult.status === "fulfilled" && gacondoResult.value) {
+    for (const s of gacondoResult.value.streams) {
+      if (s.type === "embed") add(s.url);
+    }
+    const ref = gacondoResult.value.requestHeaders.referer;
+    for (const s of gacondoResult.value.streams) {
+      if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
+    }
   }
 
   return servers;
