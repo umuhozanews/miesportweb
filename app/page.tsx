@@ -3,9 +3,14 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import {
   getCachedStvHomeMatches,
+  getCachedStvStream,
   type ScrapedMatch,
 } from "@/lib/soccerTvHd";
-import { getCachedGacondoMatches, type GacondoMatch } from "@/GACONDO";
+import {
+  getCachedGacondoMatches,
+  getCachedGacondoStream,
+  type GacondoMatch,
+} from "@/GACONDO";
 
 function teamInitials(name: string): string {
   if (!name) return "??";
@@ -79,16 +84,59 @@ export default async function Home() {
       startTime: m.dateTime ? new Date(m.dateTime) : new Date(),
       slug: `stv-${m.primarySlug}`,
       competition: m.competition || "WORLD FOOTBALL",
+      gacondoSlugs: m.slugs,
     }))
     .slice(0, 15);
 
-  const allMatches = [...stvMatches, ...gacMatches].sort((a, b) => {
+  const allMatches = [...stvMatches, ...gacMatches];
+
+  // For all matches, if it's currently live, verify if it actually has streams
+  const liveMatches = allMatches.filter((m) => m.isLive);
+  const upcomingMatches = allMatches.filter((m) => !m.isLive);
+
+  const verifiedLiveMatches = [];
+  if (liveMatches.length > 0) {
+    const checks = await Promise.all(
+      liveMatches.map(async (m) => {
+        try {
+          let hasStream = false;
+          // Check SoccerTVHD streams
+          if (m.id.startsWith("relay-")) {
+            const stv = await getCachedStvStream(m.slug).catch(() => null);
+            if (stv && stv.streams.length > 0) {
+              hasStream = true;
+            }
+          }
+          // Check Gacondo streams
+          const slugs = (m as any).gacondoSlugs;
+          if (!hasStream && slugs && slugs.length > 0) {
+            const gac = await getCachedGacondoStream(slugs).catch(() => null);
+            if (gac && gac.streams.length > 0) {
+              hasStream = true;
+            }
+          }
+          return { id: m.id, hasStream };
+        } catch {
+          return { id: m.id, hasStream: false };
+        }
+      })
+    );
+
+    for (const m of liveMatches) {
+      const check = checks.find((c) => c.id === m.id);
+      if (check && check.hasStream) {
+        verifiedLiveMatches.push(m);
+      }
+    }
+  }
+
+  const allMatchesFiltered = [...verifiedLiveMatches, ...upcomingMatches].sort((a, b) => {
     if (a.isLive && !b.isLive) return -1;
     if (!a.isLive && b.isLive) return 1;
     return a.startTime.getTime() - b.startTime.getTime();
   });
 
-  const stvCount = allMatches.length;
+  const stvCount = verifiedLiveMatches.length;
 
   return (
     <>
@@ -172,7 +220,7 @@ export default async function Home() {
               <span className="mc-sticky-pill">{stvCount} match{stvCount > 1 ? "es" : ""}</span>
             </div>
             <div className="mc-list">
-              {allMatches.map((m) => (
+              {allMatchesFiltered.map((m) => (
                 <STVMatchCard key={m.id} match={m} />
               ))}
             </div>

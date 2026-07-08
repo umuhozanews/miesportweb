@@ -164,6 +164,15 @@ function teamSlugVariants(name: string): string[] {
   sub(/bayer-leverkusen/, "leverkusen");
   sub(/olympique-marseille/, "marseille");
   sub(/olympique-lyonnais/, "lyon");
+
+  // Add stripped variants without common prefixes/suffixes
+  const stripped = base
+    .replace(/-(?:fc|sc|cf|fk|republic|united|city|town|rovers|wanderers|athletic)$/i, "")
+    .replace(/^(?:fc|sc|cf|fk|real|deportivo)-/i, "");
+  if (stripped !== base) {
+    variants.push(stripped);
+  }
+
   return [...new Set(variants)];
 }
 

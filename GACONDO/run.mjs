@@ -133,6 +133,15 @@ function teamSlugVariants(name) {
   sub(/bayer-leverkusen/, "leverkusen");
   sub(/olympique-marseille/, "marseille");
   sub(/olympique-lyonnais/, "lyon");
+
+  // Add stripped variants without common prefixes/suffixes
+  const stripped = base
+    .replace(/-(?:fc|sc|cf|fk|republic|united|city|town|rovers|wanderers|athletic)$/i, "")
+    .replace(/^(?:fc|sc|cf|fk|real|deportivo)-/i, "");
+  if (stripped !== base) {
+    variants.push(stripped);
+  }
+
   return [...new Set(variants)];
 }
 
@@ -369,8 +378,20 @@ function printStreams(result) {
 const inputSlug = process.argv[2];
 
 if (inputSlug) {
-  // Stream mode — find streams for a given slug
-  const slugVariants = [inputSlug];
+  // Stream mode — find streams for a given slug (generating team name variants)
+  let slugVariants = [inputSlug];
+  if (inputSlug.includes("-vs-")) {
+    const parts = inputSlug.split("-vs-");
+    const homes = teamSlugVariants(parts[0].replace(/-/g, " "));
+    const aways = teamSlugVariants(parts[1].replace(/-/g, " "));
+    const combined = [];
+    for (const h of homes) {
+      for (const a of aways) {
+        combined.push(`${h}-vs-${a}`);
+      }
+    }
+    slugVariants = [...new Set([inputSlug, ...combined])];
+  }
   scrapeStreams(slugVariants, inputSlug).then(printStreams).catch(console.error);
 } else {
   // Match listing mode — fetch today's matches from TheSportsDB
