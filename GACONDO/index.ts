@@ -77,7 +77,7 @@ function getClientHints(ua: string): Record<string, string> {
 
 type CFInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
 
-async function fetchHtml(url: string, timeoutMs = 8_000, referer?: string): Promise<string | null> {
+async function fetchHtml(url: string, timeoutMs = 8_000, referer?: string): Promise<{ html: string; resolvedUrl: string } | null> {
   let fetchSite = "none";
   if (referer) {
     try {
@@ -109,7 +109,12 @@ async function fetchHtml(url: string, timeoutMs = 8_000, referer?: string): Prom
         headers: buildHeaders(ua),
         cf: { cacheTtl: 120, cacheEverything: true },
       } as CFInit as RequestInit);
-      if (r.ok) return r.text();
+      if (r.ok) {
+        return {
+          html: await r.text(),
+          resolvedUrl: r.url,
+        };
+      }
       if (r.status === 403 || r.status === 429 || r.status === 503) continue;
       return null;
     } catch {
@@ -327,10 +332,12 @@ const IFRAME_SRC_RE = /<iframe[^>]+\bsrc=["']([^"'<>]{10,})["'][^>]*>/gi;
 async function fetchSourceStreams(source: StreamSource, slugs: string[]): Promise<GacondoStream[]> {
   for (const slug of slugs) {
     for (const url of source.urls(slug)) {
-      const html = await fetchHtml(url, 6_000);
-      if (!html || isBotChallengePage(html)) continue;
+      const res = await fetchHtml(url, 6_000);
+      if (!res || isBotChallengePage(res.html)) continue;
+      const html = res.html;
+      const resolvedUrl = res.resolvedUrl;
 
-      const direct = extractStreams(html, url, source.id)
+      const direct = extractStreams(html, resolvedUrl, source.id)
         .filter((s) => (s.type === "hls" || s.type === "dash" || s.type === "embed") && !isJunkEmbedUrl(s.url));
 
       const deepStreams: GacondoStream[] = [];
@@ -339,11 +346,11 @@ async function fetchSourceStreams(source: StreamSource, slugs: string[]): Promis
       for (const m of html.matchAll(SCRIPT_SRC_RE)) {
         if (!/(?:player|stream|config|jwplayer|video|hls|live)/i.test(m[1])) continue;
         try {
-          const scriptUrl = new URL(m[1], url).toString();
-          const scriptHtml = await fetchHtml(scriptUrl, 3_000, url);
-          if (scriptHtml) {
+          const scriptUrl = new URL(m[1], resolvedUrl).toString();
+          const scriptRes = await fetchHtml(scriptUrl, 3_000, resolvedUrl);
+          if (scriptRes) {
             deepStreams.push(
-              ...extractStreams(scriptHtml, scriptUrl, source.id).filter(
+              ...extractStreams(scriptRes.html, scriptRes.resolvedUrl, source.id).filter(
                 (s) => s.type === "hls" || s.type === "dash",
               ),
             );
@@ -354,10 +361,10 @@ async function fetchSourceStreams(source: StreamSource, slugs: string[]): Promis
       // Drill into embedded player iframes — most streaming sites wrap streams in iframes
       // that contain the actual HLS player JS. Fetch up to 3 to avoid hammering.
       const iframeSrcs: string[] = [];
-      const pageOrigin = new URL(url).origin;
+      const pageOrigin = new URL(resolvedUrl).origin;
       for (const m of html.matchAll(IFRAME_SRC_RE)) {
         try {
-          const iframeUrl = new URL(m[1], url).toString();
+          const iframeUrl = new URL(m[1], resolvedUrl).toString();
           // Skip same-origin (page navigation) and obvious ad/tracking iframes
           if (new URL(iframeUrl).origin === pageOrigin) continue;
           if (/(?:google|facebook|twitter|doubleclick|googlesyndication|adsbygoogle)/i.test(iframeUrl)) continue;
@@ -368,20 +375,20 @@ async function fetchSourceStreams(source: StreamSource, slugs: string[]): Promis
 
       const iframeResults = await Promise.allSettled(
         iframeSrcs.map(async (iframeUrl) => {
-          const iframeHtml = await fetchHtml(iframeUrl, 5_000, url);
-          if (!iframeHtml || isBotChallengePage(iframeHtml)) return [];
-          const found = extractStreams(iframeHtml, iframeUrl, source.id)
+          const iframeRes = await fetchHtml(iframeUrl, 5_000, resolvedUrl);
+          if (!iframeRes || isBotChallengePage(iframeRes.html)) return [];
+          const found = extractStreams(iframeRes.html, iframeRes.resolvedUrl, source.id)
             .filter((s) => (s.type === "hls" || s.type === "dash") && !isJunkEmbedUrl(s.url));
           // Also check player scripts inside the iframe
           const innerScripts: GacondoStream[] = [];
-          for (const sm of iframeHtml.matchAll(SCRIPT_SRC_RE)) {
+          for (const sm of iframeRes.html.matchAll(SCRIPT_SRC_RE)) {
             if (!/(?:player|stream|config|jwplayer|video|hls|live)/i.test(sm[1])) continue;
             try {
-              const sUrl = new URL(sm[1], iframeUrl).toString();
-              const sHtml = await fetchHtml(sUrl, 3_000, iframeUrl);
-              if (sHtml) {
+              const sUrl = new URL(sm[1], iframeRes.resolvedUrl).toString();
+              const sRes = await fetchHtml(sUrl, 3_000, iframeRes.resolvedUrl);
+              if (sRes) {
                 innerScripts.push(
-                  ...extractStreams(sHtml, sUrl, source.id).filter(
+                  ...extractStreams(sRes.html, sRes.resolvedUrl, source.id).filter(
                     (s) => s.type === "hls" || s.type === "dash",
                   ),
                 );
