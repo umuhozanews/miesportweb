@@ -28,7 +28,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // Next.js injects inline scripts; VideoJS loaded from CDN
-      "script-src 'self' 'unsafe-inline' https://1aaaa.b-cdn.net https://2aaaaa.b-cdn.net",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://1aaaa.b-cdn.net https://2aaaaa.b-cdn.net",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://1aaaa.b-cdn.net",
       "img-src * data: blob:",
       "media-src * blob:",

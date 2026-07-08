@@ -1,8 +1,13 @@
 import { getOriginalStreamUrl } from "./hlsProxy";
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const UA_POOL = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+];
+const pickUA = () => UA_POOL[Math.floor(Math.random() * UA_POOL.length)];
 const REFERER = "https://www.soccertvhd.com";
+
 
 // ─── Individual checks ────────────────────────────────────────────────────────
 
@@ -14,7 +19,7 @@ async function checkHls(url: string): Promise<boolean> {
         accept: "application/vnd.apple.mpegurl,application/x-mpegURL,*/*",
         referer: REFERER,
         origin: REFERER,
-        "user-agent": UA,
+        "user-agent": pickUA(),
       },
     });
     if (!r.ok) return false;
@@ -30,7 +35,7 @@ async function checkEmbed(url: string): Promise<boolean> {
     const r = await fetch(url, {
       signal: AbortSignal.timeout(3000),
       method: "HEAD",
-      headers: { "user-agent": UA, referer: REFERER },
+      headers: { "user-agent": pickUA(), referer: REFERER },
     });
     return r.ok;
   } catch {

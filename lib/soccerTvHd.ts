@@ -1,35 +1,19 @@
 import { unstable_cache as cache } from "next/cache";
+import { BRIDGE_PROVIDERS, type BridgeProvider } from "./bridgeProviders";
 
 const HOME_URL = "https://www.soccertvhd.com/";
 const SITE_ORIGIN = "https://www.soccertvhd.com";
-const WIDGET_ID_PATTERN =
-  /elfsight-app-([a-f0-9-]{36}|[a-z0-9-]+)/i;
-const MEDIA_URL_PATTERN =
-  /https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mpd|mp4)(?:\?[^\s"'<>\\]*)?/gi;
-const EMBED_PATTERN =
-  /<(?:iframe|source|video-js|video|embed)\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;
-// data-* on any element (e.g. <div data-src="...m3u8">) — many WP player plugins use these
-const DATA_ATTR_PATTERN =
-  /\bdata-(?:src|url|file|stream|hls|video|media|playlist|source)=["']([^"']{10,})["']/gi;
-// HLS/DASH URLs assigned to JS variables — covers all common player variable names
-const JS_STREAM_PATTERN =
-  /(?:file|source|src|url|stream|hls|hlsSrc|m3u8|m3u8Url|streamUrl|playlist|media|video|path|liveUrl|hlsUrl|videoUrl|playerUrl|manifestUrl)\s*[=:]\s*["'`]([^"'`]{10,}(?:\.m3u8|\.mpd)(?:\?[^"'`]*)?)['"` ]/gi;
-// base64-encoded URLs — atob('...')  used to hide m3u8 URLs from simple scrapers
-const BASE64_PATTERN =
-  /(?:atob|window\.atob)\s*\(\s*["']([A-Za-z0-9+/=]{20,})["']\s*\)/gi;
-// External <script src="..."> — player config is often in a separate JS file
-const SCRIPT_SRC_PATTERN =
-  /<script[^>]+\bsrc=["']([^"']+)["'][^>]*>/gi;
+const WIDGET_ID_PATTERN = /elfsight-app-([a-f0-9-]{36}|[a-z0-9-]+)/i;
+const MEDIA_URL_PATTERN = /https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mpd|mp4)(?:\?[^\s"'<>\\]*)?/gi;
+const EMBED_PATTERN = /<(?:iframe|source|video-js|video|embed)\b[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi;
+const SCRIPT_SRC_PATTERN = /<script[^>]+\bsrc=["']([^"']+)["'][^>]*>/gi;
 
-// Realistic browser UAs — pick randomly per request so concurrent Workers look different
 const UA_POOL = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
 ];
 
@@ -37,7 +21,6 @@ function pickUA(): string {
   return UA_POOL[Math.floor(Math.random() * UA_POOL.length)];
 }
 
-/** Return Chrome Client Hints headers that match the given UA, or {} for non-Chrome UAs. */
 function getClientHints(ua: string): Record<string, string> {
   const m = ua.match(/Chrome\/(\d+)/);
   if (!m) return {};
@@ -53,121 +36,21 @@ function getClientHints(ua: string): Record<string, string> {
   };
 }
 
-// CF Workers fetch extension (silently ignored in Node.js)
-type CFRequestInit = RequestInit & { cf?: { cacheTtl?: number; cacheEverything?: boolean } };
-
-function cfInit(base: RequestInit, ttl: number): CFRequestInit {
-  return { ...base, cf: { cacheTtl: ttl, cacheEverything: true } };
-}
-
-type EventDateTime = {
-  type: "datetime";
-  date: string;
-  time: string;
-};
-
-type EventImage = {
-  url: string;
-  name?: string;
-  size?: number;
-  type?: string;
-  extension?: string;
-  width?: number;
-  height?: number;
-};
-
-type EventLink = {
-  type: string;
-  target: string;
-  rawValue: string;
-  value: string;
-};
-
-type ElfsightEvent = {
-  id: string;
-  name: string;
-  start: EventDateTime;
-  end: EventDateTime;
-  timeZone: string;
-  repeatPeriod?: string;
-  description?: string;
-  image?: EventImage;
-  eventType?: unknown[];
-  location?: unknown[];
-  host?: unknown[];
-  tags?: unknown[];
-  color?: string;
-  buttonVisible?: boolean;
-  buttonLink?: EventLink;
-  buttonText?: string;
-  buttonCaption?: string;
-  video?: unknown;
-  chosen?: boolean;
-  selected?: boolean;
-  repeatFrequency?: string;
-  "$$key"?: [string, number];
-  file?: unknown;
-  exceptions?: unknown[];
-  visible?: boolean;
-};
-
-type ElfsightWidgetSettings = {
-  events: ElfsightEvent[];
-  widgetTitle?: string;
-  layout?: string;
-  groupBy?: string;
-  showPastEvents?: boolean;
-  numberOfEventsInList?: number;
-  numberOfEventsOnMobileInList?: number;
-  eventClickAction?: string;
-  enableEventLinking?: boolean;
-  displayDateFormat?: string;
-  displayTimeFormat?: string;
-  inLocalTimeZone?: boolean;
-  widgetId?: string;
-};
-
-type ElfsightBootResponse = {
-  status: number;
-  data?: {
-    widgets?: Record<
-      string,
-      {
-        status: number;
-        data?: {
-          app?: string;
-          settings?: ElfsightWidgetSettings;
-          meta?: {
-            widget_name?: string;
-            app_name?: string;
-            app_version?: string;
-          };
-        };
-      }
-    >;
-  };
-};
-
 export type ScrapedMatch = {
   id: string;
   slug: string | null;
   name: string;
   sourceTimeZone: string;
-  start: EventDateTime;
-  end: EventDateTime;
+  start: { type: "datetime"; date: string; time: string };
+  end: { type: "datetime"; date: string; time: string };
   startIso: string;
   endIso: string;
   localStart: string;
   localEnd: string;
   isLiveOrUpcoming: boolean;
-  button: {
-    visible: boolean;
-    text: string | null;
-    link: string | null;
-    target: string | null;
-  };
-  image: EventImage | null;
-  raw: ElfsightEvent;
+  button: { visible: boolean; text: string | null; link: string | null; target: string | null };
+  image: { url: string } | null;
+  raw: any;
 };
 
 export type SoccerTvHdScrapeResult = {
@@ -176,17 +59,7 @@ export type SoccerTvHdScrapeResult = {
   bootUrl: string;
   scrapedAt: string;
   widgetTitle: string;
-  settings: {
-    layout: string | null;
-    groupBy: string | null;
-    showPastEvents: boolean;
-    numberOfEventsInList: number | null;
-    eventClickAction: string | null;
-    enableEventLinking: boolean | null;
-    displayDateFormat: string | null;
-    displayTimeFormat: string | null;
-    inLocalTimeZone: boolean | null;
-  };
+  settings: any;
   matches: ScrapedMatch[];
 };
 
@@ -203,443 +76,200 @@ export type SoccerTvHdStreamResult = {
   scrapedAt: string;
   streams: StreamResource[];
   primary: StreamResource | null;
-  requestHeaders: {
-    referer: string;
-    userAgent: string;
-  };
+  requestHeaders: { referer: string; userAgent: string };
 };
-
-// Stable fallback — the homepage is IP-blocked on CF Workers but the Elfsight API works fine
-const FALLBACK_WIDGET_ID = "feba0ba4-3d63-4db8-8a0a-5e37b58b3fcc";
 
 // ─── Public cached entry-points ───────────────────────────────────────────────
 
-/**
- * Cached version of scrapeSoccerTvHdHomeMatches.
- * OpenNext backs this with Cloudflare Cache API so all Worker instances share it.
- */
 export const getCachedStvHomeMatches = cache(
   async (): Promise<SoccerTvHdScrapeResult> => scrapeSoccerTvHdHomeMatches(),
-  ["stv-home-v2"],
-  { revalidate: 300 }, // 5 min
+  ["stv-home-relay-v2"],
+  { revalidate: 300 },
 );
 
-function makeEmptyHomeResult(wId: string, bUrl: string): SoccerTvHdScrapeResult {
-  return {
-    sourceUrl: HOME_URL,
-    widgetId: wId,
-    bootUrl: bUrl,
-    scrapedAt: new Date().toISOString(),
-    widgetTitle: "Upcoming Top Matches",
-    settings: {
-      layout: null, groupBy: null, showPastEvents: false,
-      numberOfEventsInList: null, eventClickAction: null,
-      enableEventLinking: null, displayDateFormat: null,
-      displayTimeFormat: null, inLocalTimeZone: null,
-    },
-    matches: [],
-  };
-}
-
-export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
-  let widgetId: string;
-  try {
-    widgetId = await getHomepageWidgetId(2_000);
-  } catch {
-    widgetId = FALLBACK_WIDGET_ID;
-  }
-
-  const bootUrl = getBootUrl(widgetId);
-  let boot: ElfsightBootResponse;
-  try {
-    boot = await fetchJson<ElfsightBootResponse>(bootUrl);
-  } catch {
-    return makeEmptyHomeResult(widgetId, bootUrl);
-  }
-
-  const widget = boot.data?.widgets?.[widgetId];
-  const settings = widget?.data?.settings;
-
-  if (!settings?.events) {
-    return makeEmptyHomeResult(widgetId, bootUrl);
-  }
-
-  const now = new Date();
-  // Ignore the widget's own display limit — show all events up to 60 days out
-  const matches = settings.events
-    .map(normalizeEvent)
-    .filter((event) => event.raw.visible !== false)
-    .filter((event) => event.endIso > now.toISOString())
-    .sort((a, b) => a.startIso.localeCompare(b.startIso))
-    .slice(0, 60); // reasonable cap to keep responses light
-
-  return {
-    sourceUrl: HOME_URL,
-    widgetId,
-    bootUrl,
-    scrapedAt: now.toISOString(),
-    widgetTitle: settings.widgetTitle ?? "Upcoming Top Matches",
-    settings: {
-      layout: settings.layout ?? null,
-      groupBy: settings.groupBy ?? null,
-      showPastEvents: Boolean(settings.showPastEvents),
-      numberOfEventsInList: settings.numberOfEventsInList ?? null,
-      eventClickAction: settings.eventClickAction ?? null,
-      enableEventLinking: settings.enableEventLinking ?? null,
-      displayDateFormat: settings.displayDateFormat ?? null,
-      displayTimeFormat: settings.displayTimeFormat ?? null,
-      inLocalTimeZone: settings.inLocalTimeZone ?? null,
-    },
-    matches,
-  };
-}
-
-// Shared edge cache — all CF Worker instances share this via CF Cache API.
-// The slug is part of the cache key so each match gets its own entry.
 export const getCachedStvStream = cache(
   async (slug: string): Promise<SoccerTvHdStreamResult> => scrapeSoccerTvHdStream(slug),
-  ["stv-stream-v6"],
-  { revalidate: 50 }, // 50s — ensures fresh CDN tokens are always available on client refresh
+  ["stv-stream-relay-v2"],
+  { revalidate: 50 },
 );
 
-export async function scrapeSoccerTvHdStream(
-  input: string,
-): Promise<SoccerTvHdStreamResult> {
-  const sourceUrl = toSoccerTvHdPostUrl(input);
+// ─── Implementation ─────────────────────────────────────────────────────────
 
-  // Fetch the match page — 5s timeout, fail fast if CDN is blocking
-  const html = await fetchText(sourceUrl, 5_000);
-  const rawStreams = dedupeStreams(extractMediaResources(html, sourceUrl));
-
-  // soccertvhd.com match pages embed relay pages (e.g. /yalla-shoot-yalla-live-football/?v=...)
-  // that contain the actual HLS player JS with the .m3u8 URL. Drill one level deeper.
-  const stvEmbeds = rawStreams
-    .filter((s) => s.type === "embed" && s.url.startsWith(SITE_ORIGIN + "/"))
-    .slice(0, 4);
-
-  const deepHls: StreamResource[] = [];
-  const externalEmbeds: StreamResource[] = [];
-
-  if (stvEmbeds.length > 0) {
-    const settled = await Promise.allSettled(
-      stvEmbeds.map(async (embed) => {
-        // Fetch relay page with the match page as Referer — matches what a browser does
-        // and passes soccertvhd.com's own Referer/Origin checks.
-        const embedHtml = await fetchText(embed.url, 5_000, sourceUrl);
-        const resources = extractMediaResources(embedHtml, embed.url);
-
-        // Also scan external <script src="..."> files for player config (many WP players
-        // put the HLS URL in a separate .js file, not inline in the HTML).
-        const scriptHls: StreamResource[] = [];
-        for (const m of embedHtml.matchAll(SCRIPT_SRC_PATTERN)) {
-          const scriptSrc = m[1];
-          // Only fetch scripts that look like player / stream config files.
-          if (!/(?:player|stream|config|jwplayer|video|hls|live)/i.test(scriptSrc)) continue;
-          try {
-            const scriptUrl = new URL(scriptSrc, embed.url).toString();
-            const scriptText = await fetchText(scriptUrl, 3_000, embed.url);
-            scriptHls.push(...extractMediaResources(scriptText, scriptUrl)
-              .filter((s) => s.type === "hls" || s.type === "dash"));
-          } catch { /* skip unreachable scripts */ }
+export async function scrapeSoccerTvHdHomeMatches(): Promise<SoccerTvHdScrapeResult> {
+  const matches: ScrapedMatch[] = [];
+  
+  console.log("Mimicking SoccerTVHD WP-API approach...");
+  try {
+    const wpApiUrl = `${SITE_ORIGIN}/wp-json/wp/v2/posts?per_page=100&_fields=id,title,link,date&status=publish`;
+    const posts = await fetchJson<any[]>(wpApiUrl);
+    
+    if (posts?.length) {
+      posts.forEach(p => {
+        const title = decodeHtml(p.title.rendered);
+        if (title.toLowerCase().includes("vs")) {
+          const start = new Date(p.date);
+          const end = new Date(start.getTime() + 2.5 * 60 * 60 * 1000);
+          matches.push({
+            id: `relay-${p.id}`,
+            slug: getSlug(p.link),
+            name: title,
+            sourceTimeZone: "UTC",
+            start: { type: "datetime", date: p.date.split("T")[0], time: p.date.split("T")[1]?.slice(0, 5) || "00:00" },
+            end: { type: "datetime", date: p.date.split("T")[0], time: "23:59" },
+            startIso: start.toISOString(),
+            endIso: end.toISOString(),
+            localStart: formatLocalDateTime(start),
+            localEnd: "N/A",
+            isLiveOrUpcoming: true,
+            button: { visible: true, text: "Watch Live", link: p.link, target: "_blank" },
+            image: null,
+            raw: p,
+          });
         }
-
-        return {
-          hls: [
-            ...resources.filter((s) => s.type === "hls" || s.type === "dash"),
-            ...scriptHls,
-          ],
-          // External iframes from relay pages — third-party embeds that handle their
-          // own token lifecycle and don't go through our proxy (no IP rate-limit risk)
-          external: resources.filter(
-            (s) => s.type === "embed" && !s.url.startsWith(SITE_ORIGIN),
-          ),
-        };
-      }),
-    );
-    for (const r of settled) {
-      if (r.status === "fulfilled") {
-        deepHls.push(...r.value.hls);
-        externalEmbeds.push(...r.value.external);
-      }
+      });
     }
+  } catch (e) {
+    console.error("Relay sync failed:", e);
   }
 
-  // Build ordered stream list:
-  // 1. Deep HLS (found inside relay pages / their scripts) — most playable
-  // 2. Raw streams from the match page itself
-  // 3. External third-party embeds found inside relay pages
-  // 4. The soccertvhd.com relay pages themselves as direct iframe fallbacks
-  //    (the user's browser can execute their JS and play the stream natively)
-  // 5. The soccertvhd.com match page as the last-resort iframe fallback
-  const relayEmbeds: StreamResource[] = stvEmbeds.map((e) => ({ ...e, type: "embed" as const }));
-  const matchPageEmbed: StreamResource = {
-    type: "embed",
-    url: sourceUrl,
-    source: "html",
-    contentType: null,
+  return {
+    sourceUrl: "internal://relay-master",
+    widgetId: "relay-master",
+    bootUrl: "internal://relay-master",
+    scrapedAt: new Date().toISOString(),
+    widgetTitle: "Global Match Relay",
+    settings: {},
+    matches: matches.slice(0, 100),
   };
+}
 
-  const streams = dedupeStreams([
-    ...deepHls,
-    ...rawStreams,
-    ...externalEmbeds,
-    ...relayEmbeds,
-    matchPageEmbed,
-  ]);
+export async function scrapeSoccerTvHdStream(input: string): Promise<SoccerTvHdStreamResult> {
+  let slug = input;
+  if (input.startsWith("stv-")) {
+    const inner = input.slice(4);
+    const sepIdx = inner.indexOf("--");
+    slug = sepIdx !== -1 ? inner.slice(sepIdx + 2) : inner;
+  }
+  const sourceUrl = slug.startsWith("http") ? slug : `${SITE_ORIGIN}/${slug.replace(/^\/+|\/+$/g, "")}/`;
+  const pageSlug = getSlug(sourceUrl) ?? slug;
+  
+  let content = "";
+  let method: "api" | "html" = "api";
+
+  try {
+    // Try WP-API first (cleaner, bypasses some Cloudflare blocks)
+    const apiUrl = `${SITE_ORIGIN}/wp-json/wp/v2/posts?slug=${encodeURIComponent(pageSlug)}&_fields=content`;
+    const posts = await fetchJson<any[]>(apiUrl);
+    content = posts[0]?.content?.rendered ?? "";
+  } catch (e) {
+    console.warn(`WP-API fetch failed for ${pageSlug}, falling back to HTML scraping.`);
+  }
+
+  if (!content) {
+    try {
+      content = (await fetchText(sourceUrl, 6000, SITE_ORIGIN)) ?? "";
+      method = "html";
+    } catch (e) {
+      console.error(`Stream fetch failed for ${sourceUrl}:`, e);
+      return {
+        sourceUrl,
+        slug: pageSlug,
+        scrapedAt: new Date().toISOString(),
+        streams: [],
+        primary: null,
+        requestHeaders: { referer: sourceUrl, userAgent: pickUA() },
+      };
+    }
+  }
+  
+  const streams: StreamResource[] = extractMediaResources(content, sourceUrl);
+
+  // Drill into relay pages (e.g. /yalla-shoot-...) found in the content
+  const relayEmbeds = streams.filter(s => s.type === "embed" && s.url.startsWith(SITE_ORIGIN));
+  const deepStreams: StreamResource[] = [];
+
+  if (relayEmbeds.length > 0) {
+    const settled = await Promise.allSettled(relayEmbeds.map(async (embed) => {
+      const embedSlug = getSlug(embed.url);
+      if (!embedSlug) return [];
+      try {
+        const eApiUrl = `${SITE_ORIGIN}/wp-json/wp/v2/posts?slug=${encodeURIComponent(embedSlug)}&_fields=content`;
+        const ePosts = await fetchJson<any[]>(eApiUrl);
+        const eContent = ePosts[0]?.content?.rendered ?? "";
+        if (eContent) return extractMediaResources(eContent, embed.url);
+      } catch {}
+      
+      const embedHtml = await fetchText(embed.url, 5000, sourceUrl);
+      return extractMediaResources(embedHtml, embed.url);
+    }));
+    settled.forEach(r => {
+      if (r.status === "fulfilled") deepStreams.push(...r.value);
+    });
+  }
+
+  const finalStreams = dedupeStreams([...deepStreams, ...streams]);
 
   return {
     sourceUrl,
     slug: getSlug(sourceUrl) ?? "",
     scrapedAt: new Date().toISOString(),
-    streams,
-    primary:
-      streams.find((stream) => stream.type === "hls") ??
-      streams.find((stream) => stream.type === "embed") ??
-      streams[0] ??
-      null,
-    requestHeaders: {
-      referer: sourceUrl,
-      userAgent: pickUA(),
-    },
+    streams: finalStreams,
+    primary: finalStreams.find(s => s.type === "hls") || finalStreams[0] || null,
+    requestHeaders: { referer: sourceUrl, userAgent: pickUA() },
   };
 }
 
-async function getHomepageWidgetId(timeoutMs = 4_000): Promise<string> {
-  const html = await fetchText(HOME_URL, timeoutMs);
-  const widgetId = html.match(WIDGET_ID_PATTERN)?.[1];
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-  if (!widgetId) {
-    throw new Error("Could not find the Elfsight widget id on the homepage.");
-  }
-
-  return widgetId;
-}
-
-function getBootUrl(widgetId: string) {
-  const url = new URL("https://core.service.elfsight.com/p/boot/");
-  url.searchParams.set("page", HOME_URL);
-  url.searchParams.set("w", widgetId);
-  return url.toString();
-}
-
-async function fetchText(url: string, timeoutMs = 8_000, referer?: string): Promise<string> {
+async function fetchText(url: string, timeoutMs = 8000, referer?: string): Promise<string | null> {
   const ua = pickUA();
-  const hints = getClientHints(ua);
-  // sec-fetch-site: "same-origin" when we have a referer on the same domain, "none" otherwise
-  const fetchSite = referer && new URL(referer).origin === SITE_ORIGIN ? "same-origin" : "none";
-
-  const buildHeaders = (u: string): Record<string, string> => ({
-    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "accept-language": "en-US,en;q=0.9",
-    "accept-encoding": "gzip, deflate, br",
-    "user-agent": u,
-    ...getClientHints(u),
-    "sec-fetch-dest": "document",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-site": fetchSite,
-    "sec-fetch-user": "?1",
-    "upgrade-insecure-requests": "1",
-    "cache-control": "max-age=0",
-    // Referer + Origin: makes the request look like a real browser navigation
-    ...(referer ? { referer, origin: new URL(referer).origin } : {}),
-  });
-
-  const init = cfInit({ cache: "no-store", signal: AbortSignal.timeout(timeoutMs), headers: buildHeaders(ua) }, 60);
-
-  let response: Response;
   try {
-    response = await fetch(url, init as RequestInit);
-  } catch (err) {
-    // Retry once with the next UA in the pool
-    const ua2 = UA_POOL[(UA_POOL.indexOf(ua) + 1) % UA_POOL.length];
-    const init2 = cfInit({ cache: "no-store", signal: AbortSignal.timeout(timeoutMs), headers: buildHeaders(ua2) }, 60);
-    response = await fetch(url, init2 as RequestInit);
-    if (!response) throw err;
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        "user-agent": ua,
+        ...getClientHints(ua),
+        ...(referer ? { referer, origin: new URL(referer).origin } : {}),
+      },
+    });
+    if (response.status === 404 || response.status === 403) return null;
+    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+    return response.text();
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") return null;
+    throw e;
   }
-
-  if (!response.ok) {
-    throw new Error(`Fetch failed for ${url}: ${response.status}`);
-  }
-
-  return response.text();
-}
-
-async function fetchStreamText(url: string, referer: string) {
-  const response = await fetch(url, cfInit({
-    cache: "no-store",
-    signal: AbortSignal.timeout(8_000),
-    headers: {
-      accept: "application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,text/plain,*/*",
-      referer,
-      origin: SITE_ORIGIN,
-      "user-agent": pickUA(),
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "cross-site",
-    },
-  }, 120) as RequestInit); // cache playlist fetches for 2 min
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return {
-    body: await response.text(),
-    contentType: response.headers.get("content-type"),
-  };
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  // Cache the Elfsight boot API at the CF edge so all Workers share it
-  const init = cfInit({
-    signal: AbortSignal.timeout(12_000),
+  const ua = pickUA();
+  const response = await fetch(url, {
     headers: {
-      accept: "application/json, text/plain, */*",
-      referer: HOME_URL,
-      origin: SITE_ORIGIN,
-      "user-agent": pickUA(),
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "cross-site",
+      "user-agent": ua,
+      ...getClientHints(ua),
+      accept: "application/json",
     },
-  }, 300); // 5-minute shared CF edge cache
-
-  const response = await fetch(url, init as RequestInit);
-
-  if (!response.ok) {
-    throw new Error(`Fetch failed for ${url}: ${response.status}`);
-  }
-
-  return (await response.json()) as T;
+  });
+  if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+  return response.json() as T;
 }
 
-function normalizeEvent(event: ElfsightEvent): ScrapedMatch {
-  const start = zonedDateTimeToDate(event.start, event.timeZone);
-  const end = zonedDateTimeToDate(event.end, event.timeZone);
-  const link = event.buttonLink?.value ?? event.buttonLink?.rawValue ?? null;
+const JUNK_URL_RE = /(?:_Incapsula_Resource|__cf_chl|captcha|\.js\?|googlesyndication|doubleclick|adsbygoogle|\.(?:webp|png|jpe?g|gif|svg|css)(?:\?|$))/i;
 
-  return {
-    id: event.id,
-    slug: link ? getSlug(link) : null,
-    name: event.name,
-    sourceTimeZone: event.timeZone,
-    start: event.start,
-    end: event.end,
-    startIso: start.toISOString(),
-    endIso: end.toISOString(),
-    localStart: formatLocalDateTime(start),
-    localEnd: formatLocalDateTime(end),
-    isLiveOrUpcoming: end > new Date(),
-    button: {
-      visible: event.buttonVisible ?? false,
-      text: event.buttonText ?? null,
-      link,
-      target: event.buttonLink?.target ?? null,
-    },
-    image: event.image ?? null,
-    raw: event,
-  };
-}
-
-function zonedDateTimeToDate({ date, time }: EventDateTime, timeZone: string): Date {
-  // Convert a local date/time in an arbitrary IANA timezone to a UTC Date.
-  // Works by computing what UTC timestamp maps to the given local time.
-  const [y, mo, d] = date.split("-").map(Number);
-  const [h, mi] = time.split(":").map(Number);
-  const approxUtc = Date.UTC(y, mo - 1, d, h, mi);
-
-  try {
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      year: "numeric", month: "numeric", day: "numeric",
-      hour: "numeric", minute: "numeric", hour12: false,
-    });
-    const parts = fmt.formatToParts(new Date(approxUtc)).reduce(
-      (acc, p) => { if (p.type !== "literal") acc[p.type] = Number(p.value); return acc; },
-      {} as Record<string, number>,
-    );
-    const tzH = parts.hour === 24 ? 0 : parts.hour;
-    const tzUtc = Date.UTC(parts.year, parts.month - 1, parts.day, tzH, parts.minute);
-    return new Date(approxUtc - (tzUtc - approxUtc));
-  } catch {
-    // Fallback: assume UTC
-    return new Date(`${date}T${time}:00Z`);
-  }
-}
-
-function formatLocalDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function getSlug(link: string) {
-  try {
-    const url = new URL(link);
-    const slug = url.pathname.split("/").filter(Boolean).at(-1);
-    return slug ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function toSoccerTvHdPostUrl(input: string) {
-  const value = input.trim();
-  const url = value.startsWith("http")
-    ? new URL(value)
-    : new URL(`/${value.replace(/^\/+|\/+$/g, "")}/`, SITE_ORIGIN);
-
-  if (url.origin !== SITE_ORIGIN) {
-    throw new Error("Only soccertvhd.com match page URLs are supported.");
-  }
-
-  url.search = "";
-  url.hash = "";
-  return url.toString();
-}
-
-function extractMediaResources(html: string, pageUrl: string): StreamResource[] {
+function extractMediaResources(html: string | null, pageUrl: string): StreamResource[] {
   const urls = new Set<string>();
-
-  // 1. Direct media URLs in text/attributes (e.g. bare .m3u8 links)
+  if (!html) return [];
   for (const match of html.matchAll(MEDIA_URL_PATTERN)) {
-    urls.add(decodeHtml(match[0]));
+    const u = decodeHtml(match[0]);
+    if (!JUNK_URL_RE.test(u)) urls.add(u);
   }
-
-  // 2. iframe/video/source/embed src attributes
   for (const match of html.matchAll(EMBED_PATTERN)) {
-    try { urls.add(new URL(decodeHtml(match[1]), pageUrl).toString()); } catch { /* skip */ }
-  }
-
-  // 3. data-src / data-url / data-file / data-stream on any element
-  for (const match of html.matchAll(DATA_ATTR_PATTERN)) {
-    const val = decodeHtml(match[1]);
-    try { urls.add(new URL(val, pageUrl).toString()); } catch { /* skip */ }
-  }
-
-  // 4. JavaScript variable assignments containing HLS/DASH URLs
-  for (const match of html.matchAll(JS_STREAM_PATTERN)) {
-    const u = decodeHtml(match[1]).trim().replace(/[`'"]$/, "");
-    if (/^https?:\/\//i.test(u)) urls.add(u);
-  }
-
-  // 5. atob()-encoded URLs — decode base64 and look for media URLs inside
-  for (const match of html.matchAll(BASE64_PATTERN)) {
     try {
-      const decoded = atob(match[1]);
-      // Decoded might be a plain URL or a JSON blob containing a URL
-      for (const m of decoded.matchAll(MEDIA_URL_PATTERN)) urls.add(m[0]);
-      const js = JS_STREAM_PATTERN;
-      js.lastIndex = 0;
-      for (const m of decoded.matchAll(js)) {
-        const u = m[1]?.trim();
-        if (u && /^https?:\/\//i.test(u)) urls.add(u);
-      }
-    } catch { /* invalid base64 — skip */ }
+      const u = new URL(decodeHtml(match[1]), pageUrl).toString();
+      if (!JUNK_URL_RE.test(u)) urls.add(u);
+    } catch {}
   }
-
-  return [...urls].map((url) => ({
+  return [...urls].map(url => ({
     type: getStreamType(url),
     url,
     source: "html",
@@ -647,56 +277,40 @@ function extractMediaResources(html: string, pageUrl: string): StreamResource[] 
   }));
 }
 
-async function discoverPlaylistChildren(
-  stream: StreamResource,
-  referer: string,
-): Promise<StreamResource[]> {
-  const playlist = await fetchStreamText(stream.url, referer);
-
-  if (!playlist?.body.startsWith("#EXTM3U") && !playlist?.body.includes("<MPD")) {
-    stream.contentType = playlist?.contentType ?? stream.contentType;
-    return [];
-  }
-
-  stream.contentType = playlist.contentType;
-
-  return playlist.body
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"))
-    .filter((line) => /\.(?:m3u8|mpd|mp4)(?:\?|$)/i.test(line))
-    .map((line) => {
-      const url = new URL(line, stream.url).toString();
-      return {
-        type: getStreamType(url),
-        url,
-        source: "playlist" as const,
-        contentType: null,
-      };
-    });
-}
-
-function dedupeStreams(streams: StreamResource[]) {
-  const seen = new Set<string>();
-  return streams.filter((stream) => {
-    if (seen.has(stream.url)) return false;
-    seen.add(stream.url);
-    return true;
-  });
-}
-
 function getStreamType(url: string): StreamResource["type"] {
   if (/\.m3u8(?:\?|$)/i.test(url)) return "hls";
   if (/\.mpd(?:\?|$)/i.test(url)) return "dash";
-  if (/\.mp4(?:\?|$)/i.test(url)) return "mp4";
   if (/^https?:\/\//i.test(url)) return "embed";
   return "unknown";
 }
 
-function decodeHtml(value: string) {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&#038;", "&")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'");
+function decodeHtml(v: string) {
+  return v.replaceAll("&amp;", "&").replaceAll("&#038;", "&").replaceAll("&quot;", '"').replaceAll("&#39;", "'");
+}
+
+function getSlug(link: string) {
+  try { return new URL(link).pathname.split("/").filter(Boolean).at(-1) || null; } catch { return null; }
+}
+
+function formatLocalDateTime(date: Date) {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function toSoccerTvHdPostUrl(slug: string) {
+  let pageSlug = slug;
+  if (slug.startsWith("stv-")) {
+    const inner = slug.slice(4);
+    const sepIdx = inner.indexOf("--");
+    pageSlug = sepIdx !== -1 ? inner.slice(sepIdx + 2) : inner;
+  }
+  return `${SITE_ORIGIN}/${pageSlug.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+function dedupeStreams(streams: StreamResource[]) {
+  const seen = new Set<string>();
+  return streams.filter(s => {
+    if (seen.has(s.url)) return false;
+    seen.add(s.url);
+    return true;
+  });
 }

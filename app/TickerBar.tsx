@@ -14,12 +14,18 @@ function useCountdown(target: Date) {
       done: diff === 0,
     };
   };
-  const [cd, setCd] = useState(calc);
+
+  const [cd, setCd] = useState({ d: 0, h: 0, m: 0, s: 0, done: false });
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setCd(calc());
+    setMounted(true);
     const t = setInterval(() => setCd(calc()), 1000);
     return () => clearInterval(t);
-  });
-  return cd;
+  }, []);
+
+  return { ...cd, mounted };
 }
 
 function Digit({ value, label }: { value: number; label: string }) {
@@ -82,7 +88,7 @@ const TICKER_ITEMS: { text: string; ad?: boolean }[] = [
 ];
 
 export function TickerBar() {
-  const { d, h, m, s, done } = useCountdown(WC_DATE);
+  const { d, h, m, s, done, mounted } = useCountdown(WC_DATE);
 
   const tickerNodes = TICKER_ITEMS.map((item, i) => (
     <span key={i}>
@@ -137,13 +143,13 @@ export function TickerBar() {
 
           {/* Flip-digit countdown */}
           <div className="ticker-bar-countdown">
-            <Digit value={d} label="Days" />
+            <Digit value={mounted ? d : 0} label="Days" />
             <Sep />
-            <Digit value={h} label="Hrs" />
+            <Digit value={mounted ? h : 0} label="Hrs" />
             <Sep />
-            <Digit value={m} label="Mins" />
+            <Digit value={mounted ? m : 0} label="Mins" />
             <Sep />
-            <Digit value={s} label="Secs" />
+            <Digit value={mounted ? s : 0} label="Secs" />
           </div>
 
         </div>

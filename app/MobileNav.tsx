@@ -20,7 +20,7 @@ const NAV = [
     icon: <span style={{ fontSize: 20, lineHeight: 1 }}>🏆</span>,
   },
   {
-    href: "/",
+    href: "/#matches",
     label: "Watch",
     watch: true,
     icon: (
@@ -37,7 +37,7 @@ export function MobileNav() {
   return (
     <nav className="mob-bottom-nav" aria-label="Navigation">
       {NAV.map((item) => {
-        const active = item.href === "/"
+        const active = item.href === "/#matches"
           ? path === "/" || path.startsWith("/watch")
           : path.startsWith(item.href);
         return (

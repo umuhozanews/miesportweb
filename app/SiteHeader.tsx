@@ -38,7 +38,7 @@ const XSvg = () => (
 
 const NAV = [
   { href: "/livescore", label: "Livescore", Icon: RadioSvg, watch: false },
-  { href: "/",          label: "Watch",     Icon: TvSvg,    watch: true  },
+  { href: "/#matches",  label: "Watch",     Icon: TvSvg,    watch: true  },
   { href: "/worldcup",  label: "World Cup", Icon: TrophySvg, watch: false },
 ] as const;
 

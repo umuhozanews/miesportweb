@@ -1,3 +1,5 @@
+import { FREE_MODE } from "@/lib/config";
+
 const APPROVED_ORIGIN = "https://www.soccertvhd.com";
 const STREAM_SOURCES = {
   bustrr: "bustrr.cachefly.net",
@@ -53,6 +55,9 @@ export function getOriginalStreamUrl(proxied: string): string | null {
 }
 
 export function getProxiedHlsUrl(target: string, requestUrl = "http://localhost", referer?: string) {
+  if (FREE_MODE) {
+    return target;
+  }
   const streamUrl = new URL(target);
   const source = getStreamSource(streamUrl);
 
@@ -185,7 +190,7 @@ async function fetchUpstream(request: Request, streamUrl: URL) {
     for (const mode of attempts) {
       response = await fetch(url, {
         cache: "no-store",
-        headers: upstreamHeaders(request, streamUrl, mode),
+        headers: await upstreamHeaders(request, streamUrl, mode),
       });
 
       if (await isUsableUpstreamResponse(response)) {
@@ -223,11 +228,25 @@ async function isUsableUpstreamResponse(response: Response) {
   return true;
 }
 
-function upstreamHeaders(
+const UA_POOL = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+];
+
+function pickUA() {
+  return UA_POOL[Math.floor(Math.random() * UA_POOL.length)];
+}
+
+async function upstreamHeaders(
   request: Request,
   streamUrl: URL,
   mode: "origin-and-referer" | "referer-only" | "minimal",
 ) {
+  const urlParams = new URL(request.url).searchParams;
+  const customReferer = urlParams.get("ref");
+  const customOrigin = urlParams.get("org");
+  
   const source = getStreamSource(streamUrl);
   const headers = new Headers({
     accept:
@@ -238,17 +257,16 @@ function upstreamHeaders(
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "cross-site",
-    "user-agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "user-agent": pickUA(),
     "x-no-redirect": "1",
   });
 
   if (mode === "origin-and-referer") {
-    headers.set("origin", APPROVED_ORIGIN);
+    headers.set("origin", customOrigin || (customReferer ? new URL(customReferer).origin : APPROVED_ORIGIN));
   }
 
   if (mode !== "minimal") {
-    headers.set("referer", source ? STREAM_REFERERS[source] : APPROVED_ORIGIN);
+    headers.set("referer", customReferer || (source ? STREAM_REFERERS[source] : APPROVED_ORIGIN));
   }
 
   const range = request.headers.get("range");

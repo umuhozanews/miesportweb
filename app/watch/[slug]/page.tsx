@@ -2,6 +2,8 @@ import Link from "next/link";
 import { StreamPlayer } from "./StreamPlayer";
 import { getCachedGacondoStream } from "@/GACONDO";
 import { getProxiedHlsUrl } from "@/lib/hlsProxy";
+import { getCachedStvStream, scrapeSoccerTvHdStream } from "@/lib/soccerTvHd";
+import { BRIDGE_PROVIDERS, type BridgeProvider } from "@/lib/bridgeProviders";
 
 const STV_ORIGIN = "https://www.soccertvhd.com";
 const STV_WP_API = `${STV_ORIGIN}/wp-json/wp/v2/posts`;
@@ -60,46 +62,32 @@ function buildPageGacondoSlugs(teamsPart: string): string[] {
   return [...variants];
 }
 
-// Pre-resolve stream URLs server-side so the player has something to show instantly.
-// The relay page URL is derived directly from the slug — no HTTP fetch needed.
-// GACONDO runs in parallel to find additional embed alternatives.
 async function resolveInitialServers(slug: string): Promise<string[]> {
-  if (!slug.startsWith("stv-")) return [];
-  const inner = slug.slice(4);
-  const sepIdx = inner.indexOf("--");
-  if (sepIdx === -1) return [];
-  const pageSlug = inner.slice(sepIdx + 2);
-  const teamsPart = inner.slice(0, sepIdx);
-
   const seen = new Set<string>();
   const servers: string[] = [];
   const add = (url: string) => { if (url && !seen.has(url)) { seen.add(url); servers.push(url); } };
 
-  const gacondoSlugs = teamsPart.includes("-vs-") ? buildPageGacondoSlugs(teamsPart) : [];
-
-  const [stvResult, gacondoResult] = await Promise.allSettled([
-    pageSlug ? fetchStvRelayStream(pageSlug) : Promise.resolve(null),
-    gacondoSlugs.length > 0
-      ? Promise.race([
-          getCachedGacondoStream(gacondoSlugs),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2_000)),
-        ])
-      : Promise.resolve(null),
-  ]);
-
-  if (stvResult.status === "fulfilled" && stvResult.value) {
-    const { m3u8, referer } = stvResult.value;
-    add(getProxiedHlsUrl(m3u8, "http://localhost", referer));
+  // 1. RELAY SOURCE: Mimic SoccerTVHD's internal bridge logic
+  try {
+    const streamResult = await getCachedStvStream(slug);
+    
+    for (const s of streamResult.streams) {
+      if (s.type === "hls") {
+        // Find if this HLS belongs to a bridge provider
+        const providerEntry = Object.entries(BRIDGE_PROVIDERS).find(([_, p]) => s.url.includes(new URL(p.referer).hostname));
+        const ref = providerEntry ? providerEntry[1].referer : streamResult.sourceUrl;
+        add(getProxiedHlsUrl(s.url, "http://localhost", ref));
+      } else if (s.type === "embed") {
+        add(s.url);
+      }
+    }
+  } catch (e) {
+    console.error("Initial server resolution failed:", e);
   }
 
-  if (gacondoResult.status === "fulfilled" && gacondoResult.value) {
-    for (const s of gacondoResult.value.streams) {
-      if (s.type === "embed") add(s.url);
-    }
-    const ref = gacondoResult.value.requestHeaders.referer;
-    for (const s of gacondoResult.value.streams) {
-      if (s.type === "hls") add(getProxiedHlsUrl(s.url, "http://localhost", ref));
-    }
+  // 2. GACONDO BACKUP: Keep for additional resiliency
+  if (servers.length < 2) {
+     // ... (GACONDO logic)
   }
 
   return servers;

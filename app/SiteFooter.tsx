@@ -12,7 +12,7 @@ export function SiteFooter() {
         </div>
         <div className="lp-footer-links">
           <Link href="/livescore">Livescore</Link>
-          <Link href="/">Watch</Link>
+          <Link href="/#matches">Watch</Link>
           <Link href="/worldcup">World Cup</Link>
           <span>Special thanks to{" "}
             <span style={{ color: "#f5a623", fontWeight: 700 }}>GACONDO Tech</span>

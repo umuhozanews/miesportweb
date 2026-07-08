@@ -5,11 +5,14 @@ import {
   getCachedStvHomeMatches,
   type ScrapedMatch,
 } from "@/lib/soccerTvHd";
+import { getCachedGacondoMatches, type GacondoMatch } from "@/GACONDO";
 
 function teamInitials(name: string): string {
+  if (!name) return "??";
   const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return name.slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 0 || !parts[0]) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
 }
 
 function normToSlug(s: string): string {
@@ -30,21 +33,62 @@ function getStvSlug(match: ScrapedMatch): string {
 }
 
 export default async function Home() {
-  let stvResult;
-  try {
-    stvResult = await getCachedStvHomeMatches();
-  } catch {
-    stvResult = { matches: [] as ScrapedMatch[] };
-  }
+  const [stvResult, gacResult] = await Promise.all([
+    getCachedStvHomeMatches().catch(() => ({ matches: [] as ScrapedMatch[] })),
+    getCachedGacondoMatches().catch(() => ({ matches: [] as GacondoMatch[] })),
+  ]);
 
   const now = new Date();
-  const stvRaw: ScrapedMatch[] = stvResult.matches;
-  const stvMatches = stvRaw
+
+  // Process STV matches
+  const stvMatches = stvResult.matches
     .filter((m) => new Date(m.endIso) > now)
-    .map((m) => ({ match: m, slug: getStvSlug(m) }))
+    .map((m) => {
+      const nameParts = m.name.split(/\s+vs\.?\s+/i);
+      return {
+        id: m.id,
+        name: m.name,
+        home: nameParts[0]?.trim() ?? m.name,
+        away: nameParts[1]?.trim() ?? "",
+        isLive: now >= new Date(m.startIso) && now <= new Date(m.endIso),
+        startTime: new Date(m.startIso),
+        slug: getStvSlug(m),
+        competition: "MIE SPORT",
+      };
+    })
     .filter(({ slug }) => /^[a-z0-9][a-z0-9-]{3,120}[a-z0-9]$/.test(slug));
 
-  const stvCount = stvMatches.length;
+  // Process GACONDO matches
+  const seenTeams = new Set<string>();
+  stvMatches.forEach(m => {
+    seenTeams.add(m.home.toLowerCase());
+    seenTeams.add(m.away.toLowerCase());
+  });
+
+  const gacMatches = gacResult.matches
+    .filter((m) => {
+      if (seenTeams.has(m.homeTeam.toLowerCase()) || seenTeams.has(m.awayTeam.toLowerCase())) return false;
+      return m.isLive || (m.dateTime && new Date(m.dateTime) > now);
+    })
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      home: m.homeTeam,
+      away: m.awayTeam,
+      isLive: m.isLive,
+      startTime: m.dateTime ? new Date(m.dateTime) : new Date(),
+      slug: `stv-${m.primarySlug}`,
+      competition: m.competition || "WORLD FOOTBALL",
+    }))
+    .slice(0, 15);
+
+  const allMatches = [...stvMatches, ...gacMatches].sort((a, b) => {
+    if (a.isLive && !b.isLive) return -1;
+    if (!a.isLive && b.isLive) return 1;
+    return a.startTime.getTime() - b.startTime.getTime();
+  });
+
+  const stvCount = allMatches.length;
 
   return (
     <>
@@ -67,7 +111,7 @@ export default async function Home() {
             Real-time scores, free HD streams and full World Cup coverage — all in one fast, clean place.
           </p>
           <div className="lp-hero-ctas">
-            <Link href="/" className="lp-cta-primary">
+            <Link href="#matches" className="lp-cta-primary">
               <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
               Watch Live
             </Link>
@@ -86,7 +130,7 @@ export default async function Home() {
             icon={<svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><circle cx={12} cy={12} r={2} /><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" /></svg>}
             label="LIVESCORE" title="Real-time scores"
             desc="Every goal, card and substitution from every major league — updated live." />
-          <DestCard href="/" accent="indigo"
+          <DestCard href="#matches" accent="indigo"
             icon={<svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><rect width={20} height={15} x={2} y={7} rx={2} /><polyline points="17 2 12 7 7 2" /></svg>}
             label="WATCH" title="Free live streams"
             desc="HD streams for top fixtures. Pick your match and tap play — no signup." />
@@ -98,7 +142,7 @@ export default async function Home() {
       </div>
 
       {/* ── MATCHES ── */}
-      <div className="lp-matches-section">
+      <div id="matches" className="lp-matches-section">
         <div className="lp-matches-heading">
           <div>
             <div className="lp-section-eyebrow">
@@ -128,8 +172,8 @@ export default async function Home() {
               <span className="mc-sticky-pill">{stvCount} match{stvCount > 1 ? "es" : ""}</span>
             </div>
             <div className="mc-list">
-              {stvMatches.map(({ match, slug }) => (
-                <STVMatchCard key={match.id} match={match} watchSlug={slug} />
+              {allMatches.map((m) => (
+                <STVMatchCard key={m.id} match={m} />
               ))}
             </div>
           </section>
@@ -178,12 +222,11 @@ function DestCard({ href, icon, label, title, desc, accent }: {
   );
 }
 
-function STVMatchCard({ match, watchSlug }: { match: ScrapedMatch; watchSlug: string }) {
-  const nameParts = match.name.split(/\s+vs\.?\s+/i);
-  const home = nameParts[0]?.trim() ?? match.name;
-  const away = nameParts[1]?.trim() ?? "";
-  const isLive = new Date() >= new Date(match.startIso) && new Date() <= new Date(match.endIso);
-  const startTime = new Date(match.startIso);
+function STVMatchCard({ match }: { match: any }) {
+  const home = match.home;
+  const away = match.away;
+  const isLive = match.isLive;
+  const startTime = match.startTime;
   const timeLabel = isLive
     ? "LIVE"
     : startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -193,7 +236,7 @@ function STVMatchCard({ match, watchSlug }: { match: ScrapedMatch; watchSlug: st
   return (
     <div className={`mc-card${isLive ? " mc-card-live" : ""}`}>
       <div className="mc-top">
-        <span className="mc-competition">MIE SPORT</span>
+        <span className="mc-competition">{match.competition}</span>
         {isLive ? (
           <span className="mc-live-pill">
             <span className="dot-b" />LIVE
@@ -215,7 +258,7 @@ function STVMatchCard({ match, watchSlug }: { match: ScrapedMatch; watchSlug: st
           <div className="mc-team-name">{away}</div>
         </div>
       </div>
-      <Link href={`/watch/${watchSlug}`} className="mc-watch-btn">
+      <Link href={`/watch/${match.slug}`} className="mc-watch-btn">
         <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z" />
         </svg>

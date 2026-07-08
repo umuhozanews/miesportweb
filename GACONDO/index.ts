@@ -269,7 +269,7 @@ function isBotChallengePage(html: string): boolean {
 }
 
 function isJunkEmbedUrl(url: string): boolean {
-  return /(?:_Incapsula_Resource|__cf_chl|captcha|\.js\?|googlesyndication|doubleclick|adsbygoogle)/i.test(url);
+  return /(?:_Incapsula_Resource|__cf_chl|captcha|\.js\?|googlesyndication|doubleclick|adsbygoogle|\.(?:webp|png|jpe?g|gif|svg|css)(?:\?|$))/i.test(url);
 }
 
 function extractStreams(html: string, pageUrl: string, sourceId: string): GacondoStream[] {

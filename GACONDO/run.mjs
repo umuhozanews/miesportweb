@@ -187,7 +187,7 @@ async function fetchTodayMatches() {
 
 const BOT_CHALLENGE_RE = /(?:_Incapsula_Resource|__cf_chl|captcha|cf-chl-bypass|DDoS-GUARD|ray\s*id|access denied|security check|checking your browser)/i;
 const isBotChallengePage = (html) => html.length < 800 || BOT_CHALLENGE_RE.test(html);
-const isJunkEmbedUrl = (url) => /(?:_Incapsula_Resource|__cf_chl|captcha|\.js\?|googlesyndication|doubleclick)/i.test(url);
+const isJunkEmbedUrl = (url) => /(?:_Incapsula_Resource|__cf_chl|captcha|\.js\?|googlesyndication|doubleclick|adsbygoogle|\.(?:webp|png|jpe?g|gif|svg|css)(?:\?|$))/i.test(url);
 
 function streamType(url) {
   if (/\.m3u8(?:\?|$)/i.test(url)) return "hls";
